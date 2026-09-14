@@ -14,6 +14,19 @@ QB = {
             handlers[name] = callback
         end,
     },
+    world = {
+        resolveNetworkEntity = function(src, networkId, options)
+            local entity = NetworkGetEntityFromNetworkId(networkId)
+            local ped = GetPlayerPed(src)
+            if entity == 0 or not DoesEntityExist(entity) then return nil, 'entity_unavailable' end
+            if GetEntityType(entity) ~= 2 then return nil, 'wrong_entity_type' end
+            if options.sameBucket and GetPlayerRoutingBucket(src) ~= GetEntityRoutingBucket(entity) then
+                return nil, 'routing_bucket_mismatch'
+            end
+            if options.requireDriver and GetPedInVehicleSeat(entity, -1) ~= ped then return nil, 'driver_required' end
+            return entity
+        end,
+    },
 }
 
 local calls = {}

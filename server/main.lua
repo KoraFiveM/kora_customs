@@ -46,25 +46,17 @@ local function resolveShop(src, shopId)
 end
 
 local function resolveVehicle(src, resolved, netId)
-    netId = tonumber(netId)
-    if not netId or netId % 1 ~= 0 or netId < 1 or type(NetworkGetEntityFromNetworkId) ~= 'function' then
-        return nil, 'invalid vehicle entity'
-    end
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
-    if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle)
-        or type(GetEntityType) ~= 'function' or GetEntityType(vehicle) ~= 2 then
+    local vehicle, reason = QB.world.resolveNetworkEntity(src, tonumber(netId), {
+        entityType = 'vehicle',
+        maxDistance = tonumber(Config.interaction.checkoutDistance) or 12.0,
+        sameBucket = Config.interaction.requireSameBucket ~= false,
+        requireDriver = true,
+    })
+    if not vehicle then
+        if reason == 'driver_required' then return nil, 'you must be driving the vehicle' end
+        if reason == 'routing_bucket_mismatch' then return nil, 'vehicle is not in your world' end
+        if reason == 'too_far' then return nil, 'vehicle is too far away' end
         return nil, 'vehicle does not exist'
-    end
-    if type(GetVehiclePedIsIn) ~= 'function' or type(GetPedInVehicleSeat) ~= 'function'
-        or GetVehiclePedIsIn(resolved.ped, false) ~= vehicle
-        or GetPedInVehicleSeat(vehicle, -1) ~= resolved.ped then
-        return nil, 'you must be driving the vehicle'
-    end
-    if Config.interaction.requireSameBucket ~= false then
-        if type(GetEntityRoutingBucket) ~= 'function'
-            or GetEntityRoutingBucket(vehicle) ~= resolved.bucket then
-            return nil, 'vehicle is not in your world'
-        end
     end
     local separation = distance(GetEntityCoords(vehicle), resolved.shop.coords)
     if not separation or separation > (tonumber(Config.interaction.checkoutDistance) or 12.0) then
