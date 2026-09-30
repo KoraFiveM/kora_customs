@@ -40,4 +40,25 @@ equal(merged.extras['1'], true, 'changed extra merges')
 equal(merged.extras['2'], false, 'unmentioned extra is preserved')
 equal(existing.modSpoilers, 1, 'merge does not mutate existing properties')
 
+for _, field in ipairs({ 'modXenon', 'modSmokeEnabled', 'modCustomTiresF', 'modCustomTiresR' }) do
+    for _, enabled in ipairs({ false, true }) do
+        local input = { [field] = enabled }
+        local selected = assert(Customs.sanitizePatch(input))
+        equal(selected[field], enabled, 'boolean value is preserved')
+        local current = { [field] = not enabled, color1 = 5 }
+        local changes = Customs.changedPatch(selected, current)
+        equal(changes[field], enabled, 'changed boolean is retained')
+        equal(Customs.price(changes), Config.prices[Customs.rules[field].price], 'boolean change has its normal price')
+        local result = Customs.merge(current, changes)
+        equal(result[field], enabled, 'boolean change merges')
+        equal(result.color1, 5, 'unselected property is preserved')
+        equal(current[field], not enabled, 'merge preserves the original properties')
+        equal(input[field], enabled, 'sanitizer preserves its input')
+        equal(next(Customs.changedPatch(selected, result)), nil, 'unchanged boolean is free')
+    end
+    for _, value in ipairs({ 0, 1, 'false', 'true', {} }) do
+        equal(Customs.sanitizePatch({ [field] = value }), nil, 'non-boolean value is rejected')
+    end
+end
+
 print('qbcustoms catalog: ok')

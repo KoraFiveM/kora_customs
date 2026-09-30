@@ -84,7 +84,10 @@ end
 
 local function sanitizeValue(rule, value)
     if rule.kind == 'integer' then return integer(value, rule.min, rule.max) end
-    if rule.kind == 'boolean' then return type(value) == 'boolean' and value or nil end
+    if rule.kind == 'boolean' then
+        if type(value) ~= 'boolean' then return nil end
+        return value
+    end
     if rule.kind == 'rgb' then return rgb(value) end
     if rule.kind == 'color' then
         if type(value) == 'table' then return rgb(value) end
