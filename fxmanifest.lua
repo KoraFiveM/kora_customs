@@ -19,7 +19,7 @@ dependencies {
 }
 
 shared_script '@qblib/init.lua'
-
+shared_script '@qbsql/init.lua'
 shared_scripts {
     'config.lua',
     'shared/catalog.lua'

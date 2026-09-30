@@ -382,84 +382,75 @@ end
 -- Freecam
 ------------------------------------------------------------------------
 
--- The shell holds NUI focus, so the freecam closes it, runs its own control
--- loop, then reopens it. The camera stays where Enter left it while the shell
--- is open and is destroyed when the whole session ends.
-local viewCam
-local lookSpeed, walkSpeed, fastSpeed = 8.0, 3.0, 12.0
+-- Flying is QB.freecam. The shell holds NUI focus, so the button closes it, then
+-- waits for Enter (keep the view) or Backspace (back to the previous view) and
+-- reopens it. The camera handle stays live while the shell is open and is
+-- stopped when the whole session ends.
+local viewHandle
 local helpText = 'WASD move  |  Q/E down/up  |  Shift fast  |  Mouse look  |  Enter save view  |  Backspace cancel'
+-- vehicle inputs that would fire while flying (E is the horn in a vehicle)
+local blockedControls = { 23, 71, 72, 75, 76, 86 }
 
 local function stopCamera()
-    if viewCam then
-        RenderScriptCams(false, false, 0, true, false)
-        DestroyCam(viewCam, false)
-        viewCam = nil
+    if viewHandle then
+        viewHandle.stop()
+        viewHandle = nil
     end
-    ClearFocus()
 end
 
-local function camPose(cam)
-    return { coords = GetCamCoord(cam), rot = GetCamRot(cam, 2), fov = GetCamFov(cam) }
+local function poseOf(handle)
+    local coords, rotation = handle.getCoords(), handle.getRotation()
+    if not coords or not rotation then return nil end
+    return {
+        coords = coords,
+        rotation = { x = rotation.pitch, y = rotation.roll, z = rotation.yaw },
+        fov = GetCamFov(handle.getCamera()),
+    }
 end
 
-local function applyCamPose(cam, pose)
-    SetCamCoord(cam, pose.coords.x, pose.coords.y, pose.coords.z)
-    SetCamRot(cam, pose.rot.x, pose.rot.y, pose.rot.z, 2)
-    SetCamFov(cam, pose.fov)
+-- Starts at `pose`, or at the normal gameplay view when there isn't one.
+local function startView(pose)
+    local handle, err = QB.freecam.start({
+        coords = pose and pose.coords,
+        rotation = pose and pose.rotation,
+        fov = pose and pose.fov,
+        upControl = 38,
+        downControl = 44,
+    })
+    if not handle then
+        notify(err or 'Could not start the freecam.', 'error')
+        return nil
+    end
+    viewHandle = handle
+    return handle
 end
 
-local function startCamera()
-    local coords, rot = GetGameplayCamCoord(), GetGameplayCamRot(2)
-    viewCam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', coords.x, coords.y, coords.z, rot.x, rot.y, rot.z, GetGameplayCamFov(), false, 2)
-    SetCamActive(viewCam, true)
-    RenderScriptCams(true, false, 0, true, false)
-    return viewCam
+local function pressed(control)
+    return IsControlJustPressed(0, control) or IsDisabledControlJustPressed(0, control)
 end
 
--- Blocks until Enter (keep the view) or Backspace (go back to the previous view,
--- or the normal camera if there wasn't one).
+-- Blocks until Enter or Backspace. Backspace goes back to the view the camera had
+-- when this run began, or to the normal camera if it had none.
 local function runFreecam(session)
-    local before = viewCam and camPose(viewCam) or nil
-    local cam = viewCam or startCamera()
-    local coords, rot = GetCamCoord(cam), GetCamRot(cam, 2)
-    local pitch, yaw = rot.x, rot.z
+    local existing = viewHandle and viewHandle.isActive()
+    local before = existing and poseOf(viewHandle) or nil
+    local handle = existing and viewHandle or startView()
+    if not handle then return end
 
     Wait(150) -- let the shell release NUI focus first
 
-    while vehicleIsUsable(session.vehicle) do
+    while handle.isActive() and vehicleIsUsable(session.vehicle) do
         Wait(0)
-        DisableAllControlActions(0)
-
-        yaw = yaw - GetDisabledControlNormal(0, 1) * lookSpeed
-        pitch = math.max(-89.0, math.min(89.0, pitch - GetDisabledControlNormal(0, 2) * lookSpeed))
-
-        local radZ, radX = math.rad(yaw), math.rad(pitch)
-        local cosX = math.cos(radX)
-        local forward = vector3(-math.sin(radZ) * cosX, math.cos(radZ) * cosX, math.sin(radX))
-        local right = vector3(math.cos(radZ), math.sin(radZ), 0.0)
-
-        local move = vector3(0.0, 0.0, 0.0)
-        if IsDisabledControlPressed(0, 32) then move = move + forward end -- W
-        if IsDisabledControlPressed(0, 33) then move = move - forward end -- S
-        if IsDisabledControlPressed(0, 35) then move = move + right end   -- D
-        if IsDisabledControlPressed(0, 34) then move = move - right end   -- A
-        if IsDisabledControlPressed(0, 38) then move = move + vector3(0.0, 0.0, 1.0) end -- E
-        if IsDisabledControlPressed(0, 44) then move = move - vector3(0.0, 0.0, 1.0) end -- Q
-
-        local speed = (IsDisabledControlPressed(0, 21) and fastSpeed or walkSpeed) * GetFrameTime()
-        coords = coords + move * speed
-
-        SetCamCoord(cam, coords.x, coords.y, coords.z)
-        SetCamRot(cam, pitch, 0.0, yaw, 2)
-        SetFocusPosAndVel(coords.x, coords.y, coords.z, 0.0, 0.0, 0.0)
+        for _, control in ipairs(blockedControls) do DisableControlAction(0, control, true) end
 
         BeginTextCommandDisplayHelp('STRING')
         AddTextComponentSubstringPlayerName(helpText)
         EndTextCommandDisplayHelp(0, false, false, -1)
 
-        if IsDisabledControlJustPressed(0, 191) then return end -- Enter
-        if IsDisabledControlJustPressed(0, 177) then            -- Backspace
-            if before then applyCamPose(cam, before) else stopCamera() end
+        if pressed(191) then return end -- Enter
+        if pressed(177) then            -- Backspace
+            stopCamera()
+            if before then startView(before) end
             return
         end
     end
@@ -551,7 +542,7 @@ local function checkout()
         end
 
         local purchased, result = QB.callback.trigger(
-            'qbcustoms:purchase', session.shopId, netId, session.pending, quote.price
+            'qbcustoms:purchase', session.shopId, netId, session.pending, quote.price, QB.vehicle.getProperties(session.vehicle)
         )
         if not purchased then
             if active == session then return abort(result or 'Purchase failed; preview changes were reverted.') end
@@ -725,3 +716,12 @@ AddEventHandler('onClientResourceStop', function(resource)
 end)
 
 exports('open', open)
+RegisterCommand('getVehprop', function()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    if not vehicle or vehicle == 0 then
+        print('No vehicle found')
+        return
+    end
+    local props = QB.vehicle.getProperties(vehicle)
+    QB.print.debug(props)
+end)
