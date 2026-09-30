@@ -108,6 +108,7 @@ QB.callback.register('qbcustoms:quote', function(src, shopId, netId, requestedPa
     return true, { price = prepared.price, plate = prepared.row.plate }
 end, { rateLimit = { max = 8, window = 10000 } })
 
+-- Keep the extra client argument compatible; only the validated patch reaches persistence.
 QB.callback.register('qbcustoms:purchase', function(src, shopId, netId, requestedPatch, quotedPrice, mods)
     local prepared, prepareErr = prepare(src, shopId, netId, requestedPatch)
     if not prepared then return false, prepareErr end
@@ -136,7 +137,6 @@ QB.callback.register('qbcustoms:purchase', function(src, shopId, netId, requeste
                 plate = row.plate, shop = shopId, price = price, fields = patch,
             })
         end)
-        QB.sql.query('UPDATE player_vehicles SET mods = ? WHERE plate = ? and citizenid = ?', { json.encode(mods), row.plate, exports.qbcore:getPlayerData(src).citizenid })
         return true, { price = price, plate = row.plate }
     end)
     purchasing[row.plate] = nil

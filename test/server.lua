@@ -125,4 +125,20 @@ assert(ok == false and result == 'database unavailable', 'save failure is surfac
 assert(balance == before, 'failed persistence is refunded')
 assert(calls.refund.ignoreTax == true, 'refund is tax-free')
 
+-- Current clients still send full preview properties as the sixth argument.
+saveSucceeds = true
+calls = {}
+row.mods = { color1 = 1, modEngine = 1, extras = { ['1'] = false } }
+local previewProperties = { color1 = 255, modEngine = 4, modSpoilers = 200, plate = 'OTHER', fuelLevel = 100 }
+before = balance
+ok, result = purchase(1, 'bennys', 99, { color1 = 2 }, 350, previewProperties)
+assert(ok == true, result)
+assert(balance == before - 350 and calls.refund == nil, 'valid checkout charges once without refunding')
+assert(calls.save.properties.color1 == 2, 'only selected paint reaches persistence')
+assert(calls.save.properties.modEngine == 1, 'existing performance data is preserved')
+assert(calls.save.properties.modSpoilers == nil, 'unselected preview fields cannot reach persistence')
+assert(calls.save.properties.plate == nil and calls.save.properties.fuelLevel == nil, 'preview identity and condition stay out')
+assert(calls.save.properties.extras['1'] == false, 'existing cosmetic fields remain')
+assert(previewProperties.color1 == 255 and row.mods.color1 == 1, 'input and stored snapshots remain unchanged')
+
 print('qbcustoms server: ok')
