@@ -6,12 +6,6 @@ local function normalizePlate(plate)
     return normalized ~= '' and normalized or nil
 end
 
-local function distance(left, right)
-    if not left or not right then return nil end
-    local dx, dy, dz = left.x - right.x, left.y - right.y, left.z - right.z
-    return math.sqrt(dx * dx + dy * dy + dz * dz)
-end
-
 local function core(name, ...)
     local args = { ... }
     local ok, first, second = pcall(function()
@@ -38,8 +32,8 @@ local function resolveShop(src, shopId)
         if GetPlayerRoutingBucket(src) ~= bucket then return nil, 'custom shop is not in your world' end
     end
 
-    local separation = distance(GetEntityCoords(ped), shop.coords)
-    if not separation or separation > (tonumber(Config.interaction.checkoutDistance) or 12.0) then
+    if not QB.distance.coords(GetEntityCoords(ped), shop.coords,
+        tonumber(Config.interaction.checkoutDistance) or 12.0) then
         return nil, 'too far from the custom shop'
     end
     return { shop = shop, ped = ped, bucket = bucket }
@@ -58,8 +52,8 @@ local function resolveVehicle(src, resolved, netId)
         if reason == 'too_far' then return nil, 'vehicle is too far away' end
         return nil, 'vehicle does not exist'
     end
-    local separation = distance(GetEntityCoords(vehicle), resolved.shop.coords)
-    if not separation or separation > (tonumber(Config.interaction.checkoutDistance) or 12.0) then
+    if not QB.distance.coords(GetEntityCoords(vehicle), resolved.shop.coords,
+        tonumber(Config.interaction.checkoutDistance) or 12.0) then
         return nil, 'vehicle is not at the custom shop'
     end
     return vehicle
