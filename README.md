@@ -1,7 +1,7 @@
-# qbcustoms
+# kora_customs
 
 Public, self-service cosmetic vehicle customisation for the qbcore2 stack.
-It is intentionally separate from `qbmechanic`: no repairs, work orders,
+It is intentionally separate from `kora_mechanic`: no repairs, work orders,
 employee job, servicing, or performance upgrades are included.
 
 ## Features
@@ -31,7 +31,7 @@ accepted by the server.
 Client:
 
 ```lua
-exports.qbcustoms:open('bennys')
+exports.kora_customs:open('bennys')
 ```
 
 The id must exist in `Config.shops`; checkout still enforces its server-side

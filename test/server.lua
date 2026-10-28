@@ -71,7 +71,7 @@ end
 
 function core.logEvent() return true end
 
-exports = { qbcore = core }
+exports = { kora_core = core }
 GetPlayerPed = function() return 10 end
 DoesEntityExist = function(entity) return entity == 10 or entity == 20 end
 GetEntityCoords = function() return vector(-211.55, -1324.55, 30.89) end

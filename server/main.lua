@@ -9,7 +9,7 @@ end
 local function core(name, ...)
     local args = { ... }
     local ok, first, second = pcall(function()
-        return exports.qbcore[name](exports.qbcore, table.unpack(args))
+        return exports.kora_core[name](exports.kora_core, table.unpack(args))
     end)
     if not ok then return nil, 'qbcore is unavailable' end
     return first, second
@@ -127,7 +127,7 @@ QB.callback.register('qbcustoms:purchase', function(src, shopId, netId, requeste
         end
 
         pcall(function()
-            exports.qbcore:logEvent('vehicle-customisation', src, {
+            exports.kora_core:logEvent('vehicle-customisation', src, {
                 plate = row.plate, shop = shopId, price = price, fields = patch,
             })
         end)

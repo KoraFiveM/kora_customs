@@ -659,10 +659,10 @@ end
 
 local targetIds = {}
 local function registerTargets()
-    for _, id in pairs(targetIds) do exports.qbtarget:removeZone(id) end
+    for _, id in pairs(targetIds) do exports.kora_target:removeZone(id) end
     targetIds = {}
     for shopId, shop in pairs(Config.shops) do
-        targetIds[#targetIds + 1] = exports.qbtarget:addBoxZone({
+        targetIds[#targetIds + 1] = exports.kora_target:addBoxZone({
             coords = shop.coords,
             size = shop.size,
             rotation = shop.rotation,
@@ -706,7 +706,7 @@ end
 registerTargets()
 registerBlips()
 AddEventHandler('onClientResourceStart', function(resource)
-    if resource == 'qbtarget' then registerTargets() end
+    if resource == 'kora_target' then registerTargets() end
 end)
 AddEventHandler('onClientResourceStop', function(resource)
     if resource == owner then
