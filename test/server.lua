@@ -8,7 +8,7 @@ dofile('config.lua')
 dofile('shared/catalog.lua')
 
 local handlers = {}
-QB = {
+Kora = {
     distance = { coords = function(a, b, distance)
         local dx, dy, dz = a.x - b.x, a.y - b.y, a.z - b.z
         return dx * dx + dy * dy + dz * dz <= distance * distance

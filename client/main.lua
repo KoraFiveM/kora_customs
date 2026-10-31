@@ -36,7 +36,7 @@ for _, definition in ipairs(Customs.modFields) do fieldLabels[definition.field] 
 local modSections = { body = 'body', interior = 'interior', wheels = 'wheels', plate = 'plate' }
 
 local function notify(message, kind)
-    QB.notify.send({ title = 'Custom Shop', message = message, type = kind or 'info' })
+    Kora.notify.send({ title = 'Custom Shop', message = message, type = kind or 'info' })
 end
 
 local function dollars(value)
@@ -44,7 +44,7 @@ local function dollars(value)
 end
 
 local function vehicleIsUsable(vehicle)
-    return vehicle and vehicle ~= 0 and DoesEntityExist(vehicle) and QB.vehicle.isDriver(vehicle)
+    return vehicle and vehicle ~= 0 and DoesEntityExist(vehicle) and Kora.vehicle.isDriver(vehicle)
 end
 
 local function localizedModName(vehicle, slot, index)
@@ -86,7 +86,7 @@ end
 
 local function preview(field, value)
     if not active or not vehicleIsUsable(active.vehicle) then return end
-    local ok, err = QB.vehicle.setProperties(active.vehicle, { [field] = value })
+    local ok, err = Kora.vehicle.setProperties(active.vehicle, { [field] = value })
     if not ok then return notify(err or 'Could not preview that option.', 'error') end
     setPending(field, value)
 end
@@ -96,7 +96,7 @@ local function restore()
     local session = active
     active = nil
     if DoesEntityExist(session.vehicle) then
-        QB.vehicle.setProperties(session.vehicle, session.original, { timeout = 2000 })
+        Kora.vehicle.setProperties(session.vehicle, session.original, { timeout = 2000 })
         FreezeEntityPosition(session.vehicle, session.wasFrozen)
     end
 end
@@ -375,14 +375,14 @@ end
 
 local function refresh()
     if not active then return end
-    QB.nui.updateApp(APP_ID, { title = active.label, navigation = buildNavigation() })
+    Kora.nui.updateApp(APP_ID, { title = active.label, navigation = buildNavigation() })
 end
 
 ------------------------------------------------------------------------
 -- Freecam
 ------------------------------------------------------------------------
 
--- Flying is QB.freecam. The shell holds NUI focus, so the button closes it, then
+-- Flying is Kora.freecam. The shell holds NUI focus, so the button closes it, then
 -- waits for Enter (keep the view) or Backspace (back to the previous view) and
 -- reopens it. The camera handle stays live while the shell is open and is
 -- stopped when the whole session ends.
@@ -410,7 +410,7 @@ end
 
 -- Starts at `pose`, or at the normal gameplay view when there isn't one.
 local function startView(pose)
-    local handle, err = QB.freecam.start({
+    local handle, err = Kora.freecam.start({
         coords = pose and pose.coords,
         rotation = pose and pose.rotation,
         fov = pose and pose.fov,
@@ -487,7 +487,7 @@ local function toggleExtra(text)
     local id = tonumber(text)
     local enabled = id and active.extras[id]
     if enabled == nil then return end
-    QB.vehicle.setProperties(active.vehicle, { extras = { [tostring(id)] = not enabled } })
+    Kora.vehicle.setProperties(active.vehicle, { extras = { [tostring(id)] = not enabled } })
     setExtra(id, not enabled)
 end
 
@@ -506,7 +506,7 @@ local function pickColor(field, context)
 end
 
 local function closeShell()
-    if QB.nui.isAppOpen(APP_ID) then QB.nui.closeApp(APP_ID) end
+    if Kora.nui.isAppOpen(APP_ID) then Kora.nui.closeApp(APP_ID) end
 end
 
 -- Callbacks and the confirmation dialog block, so checkout runs in its own
@@ -526,11 +526,11 @@ local function checkout()
         end
 
         local netId = NetworkGetNetworkIdFromEntity(session.vehicle)
-        local quoted, quote = QB.callback.trigger('qbcustoms:quote', session.shopId, netId, session.pending)
+        local quoted, quote = Kora.callback.trigger('qbcustoms:quote', session.shopId, netId, session.pending)
         if active ~= session then return end
         if not quoted then return abort(quote or 'Could not quote these changes; previews were reverted.') end
 
-        local confirmation = QB.nui.openAlert({
+        local confirmation = Kora.nui.openAlert({
             title = 'Confirm customisation',
             message = ('Purchase the selected cosmetic changes for %s?'):format(dollars(quote.price)),
             confirmLabel = 'Purchase',
@@ -541,8 +541,8 @@ local function checkout()
             return refresh()
         end
 
-        local purchased, result = QB.callback.trigger(
-            'qbcustoms:purchase', session.shopId, netId, session.pending, quote.price, QB.vehicle.getProperties(session.vehicle)
+        local purchased, result = Kora.callback.trigger(
+            'qbcustoms:purchase', session.shopId, netId, session.pending, quote.price, Kora.vehicle.getProperties(session.vehicle)
         )
         if not purchased then
             if active == session then return abort(result or 'Purchase failed; preview changes were reverted.') end
@@ -593,7 +593,7 @@ end
 
 -- registerApp needs at least one view, so it starts with a placeholder that
 -- open() replaces with the session's real navigation.
-QB.nui.registerApp({
+Kora.nui.registerApp({
     id = APP_ID,
     title = 'Custom Shop',
     description = 'Cosmetic vehicle customisation. No repairs or performance tuning.',
@@ -618,7 +618,7 @@ local function open(shopId)
     if not netId or netId == 0 then return notify('This vehicle is not networked.', 'error') end
 
     SetVehicleModKit(vehicle, 0)
-    local original, err = QB.vehicle.getProperties(vehicle)
+    local original, err = Kora.vehicle.getProperties(vehicle)
     if not original then return notify(err or 'Could not read this vehicle.', 'error') end
     local session = {
         shopId = shopId,
@@ -633,7 +633,7 @@ local function open(shopId)
 
     CreateThread(function()
         refresh()
-        QB.nui.openApp(APP_ID, { viewId = 'paint' })
+        Kora.nui.openApp(APP_ID, { viewId = 'paint' })
 
         -- The freecam button closes the shell on purpose: fly the camera, then
         -- reopen the shell with the previews untouched.
@@ -646,7 +646,7 @@ local function open(shopId)
                 break
             end
             refresh()
-            QB.nui.openApp(APP_ID, { viewId = session.viewId or 'paint' })
+            Kora.nui.openApp(APP_ID, { viewId = session.viewId or 'paint' })
         end
 
         -- openApp returns however the shell closed (Escape, X, discard, a
@@ -686,7 +686,7 @@ end
 local function registerBlips()
     if Config.blip.enabled == false then return end
     for _, shop in pairs(Config.shops) do
-        QB.blips.create(shop.coords, {
+        Kora.blips.create(shop.coords, {
             name = shop.label,
             sprite = Config.blip.sprite,
             color = Config.blip.color,
@@ -722,6 +722,6 @@ RegisterCommand('getVehprop', function()
         print('No vehicle found')
         return
     end
-    local props = QB.vehicle.getProperties(vehicle)
-    QB.print.debug(props)
+    local props = Kora.vehicle.getProperties(vehicle)
+    Kora.print.debug(props)
 end)

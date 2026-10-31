@@ -32,7 +32,7 @@ local function resolveShop(src, shopId)
         if GetPlayerRoutingBucket(src) ~= bucket then return nil, 'custom shop is not in your world' end
     end
 
-    if not QB.distance.coords(GetEntityCoords(ped), shop.coords,
+    if not Kora.distance.coords(GetEntityCoords(ped), shop.coords,
         tonumber(Config.interaction.checkoutDistance) or 12.0) then
         return nil, 'too far from the custom shop'
     end
@@ -40,7 +40,7 @@ local function resolveShop(src, shopId)
 end
 
 local function resolveVehicle(src, resolved, netId)
-    local vehicle, reason = QB.world.resolveNetworkEntity(src, tonumber(netId), {
+    local vehicle, reason = Kora.world.resolveNetworkEntity(src, tonumber(netId), {
         entityType = 'vehicle',
         maxDistance = tonumber(Config.interaction.checkoutDistance) or 12.0,
         sameBucket = Config.interaction.requireSameBucket ~= false,
@@ -52,7 +52,7 @@ local function resolveVehicle(src, resolved, netId)
         if reason == 'too_far' then return nil, 'vehicle is too far away' end
         return nil, 'vehicle does not exist'
     end
-    if not QB.distance.coords(GetEntityCoords(vehicle), resolved.shop.coords,
+    if not Kora.distance.coords(GetEntityCoords(vehicle), resolved.shop.coords,
         tonumber(Config.interaction.checkoutDistance) or 12.0) then
         return nil, 'vehicle is not at the custom shop'
     end
@@ -96,14 +96,14 @@ local function prepare(src, shopId, netId, requestedPatch)
     return { row = row, patch = patch, price = price }
 end
 
-QB.callback.register('qbcustoms:quote', function(src, shopId, netId, requestedPatch)
+Kora.callback.register('qbcustoms:quote', function(src, shopId, netId, requestedPatch)
     local prepared, err = prepare(src, shopId, netId, requestedPatch)
     if not prepared then return false, err end
     return true, { price = prepared.price, plate = prepared.row.plate }
 end, { rateLimit = { max = 8, window = 10000 } })
 
 -- Keep the extra client argument compatible; only the validated patch reaches persistence.
-QB.callback.register('qbcustoms:purchase', function(src, shopId, netId, requestedPatch, quotedPrice, mods)
+Kora.callback.register('qbcustoms:purchase', function(src, shopId, netId, requestedPatch, quotedPrice, mods)
     local prepared, prepareErr = prepare(src, shopId, netId, requestedPatch)
     if not prepared then return false, prepareErr end
     local row, patch, price = prepared.row, prepared.patch, prepared.price
