@@ -93,6 +93,9 @@ local function prepare(src, shopId, netId, requestedPatch)
 
     local price = Customs.price(patch)
     if price <= 0 then return nil, 'custom shop pricing is invalid' end
+    if Config.interaction.allowFreeFields ~= true and #Customs.unpriced(patch) > 0 then
+        return nil, 'custom shop pricing is invalid'
+    end
     return { row = row, patch = patch, price = price }
 end
 

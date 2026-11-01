@@ -61,4 +61,24 @@ for _, field in ipairs({ 'modXenon', 'modSmokeEnabled', 'modCustomTiresF', 'modC
     end
 end
 
+-- Every paint / glass field is priced, including custom RGB and pearlescent.
+for _, changes in ipairs({
+    { windowTint = 3 }, { pearlescentColor = 12 }, { color1 = { r = 1, g = 2, b = 3 } },
+    { color2 = 7 }, { color1 = 4, color2 = { r = 9, g = 8, b = 7 }, pearlescentColor = 1, windowTint = 0 },
+}) do
+    local selected = assert(Customs.sanitizePatch(changes))
+    assert(Customs.price(Customs.changedPatch(selected, {})) > 0, 'paint and tint changes are charged')
+    equal(#Customs.unpriced(selected), 0, 'configured fields are all priced')
+end
+equal(Customs.price({ windowTint = 3, pearlescentColor = 12, color1 = { r = 1, g = 2, b = 3 } }), 350 + 350 + 600,
+    'tint, pearlescent and custom RGB are each charged')
+
+local savedPaint = Config.prices.paint
+Config.prices.paint = 0
+local free = Customs.unpriced({ windowTint = 2, modSpoilers = 1, color1 = 3 })
+equal(table.concat(free, ','), 'color1,windowTint', 'zero-priced fields are reported, paid ones are not')
+Config.prices.paint = nil
+equal(#Customs.unpriced({ windowTint = 2 }), 1, 'a missing price counts as free')
+Config.prices.paint = savedPaint
+
 print('qbcustoms catalog: ok')

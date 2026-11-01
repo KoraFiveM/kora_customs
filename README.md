@@ -33,6 +33,32 @@ while **Freecam** is active. Set `focusParts = false` for the normal camera.
 Presets with an `eye = { bone, fallback, offset }` table put the camera inside
 the cabin (the Interior tab does); window tint uses the `sideWindow` preset.
 
+**Keeping the part clear of the panel.** The shop panel covers the right of the
+screen, so the camera is turned to put the framed part in the free area beside
+it (`Config.camera.avoidPanel`, `panelMargin`, `screenShift`; the panel width
+comes from `Config.ui.width` / `layout`). Presets can opt out with
+`avoidPanel = false` and add an aim `offset`. The Interior view sits between and
+behind the front seats and looks at the middle of the dashboard; while it is
+active (`Config.camera.cabin`) the player is hidden for the local client, a
+white fill light lights the cabin, and a leftover screen blur / timecycle is
+cleared. The **Hide menu** button (`Config.ui.previewButton`) closes the panel
+so the whole screen shows the vehicle; Enter, Backspace or Escape brings it back.
+
+**Movable panel.** `Config.ui.draggable` and `Config.ui.rememberPosition` are
+sent to the kora_lib app shell as `draggable` / `rememberPosition` (with
+`positionKey`). A shell that supports them lets the player drag the panel by its
+header, clamped to the screen, remember the position per player and reset it with
+a double-click on the header; older shells ignore the fields.
+
+**Previews are never saved.** Previews exist only on the vehicle entity; the
+server persists only what checkout validates and charges. Every way out that is
+not a completed purchase (Escape, X, Discard changes, a failed or refused
+checkout, leaving the seat or the shop, dying, the vehicle disappearing,
+resource stop) puts the original properties back, including paint, pearlescent,
+custom RGB and window tint, and checks that paint and tint really came back.
+Checkout prices every changed field on the server and refuses a field whose
+price is missing or 0 unless `Config.interaction.allowFreeFields = true`.
+
 **Horn preview.** `Config.hornPreview` (`autoPlay`, `button`, `durationMs`):
 the selected horn sounds briefly when changed, and the horn row has a
 **Test horn** button. Set either to `false` to turn it off.

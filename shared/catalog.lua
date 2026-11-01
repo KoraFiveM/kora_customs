@@ -188,6 +188,20 @@ function Customs.price(patch)
     return total
 end
 
+-- Changed fields the configured prices would let through for nothing (a
+-- missing or zero price). Checked per field, because a free field riding along
+-- in an order that has other paid fields would never trip the total-is-zero check.
+---@param patch table
+---@return string[] fields
+function Customs.unpriced(patch)
+    local free = {}
+    for field, value in pairs(patch) do
+        if Customs.price({ [field] = value }) <= 0 then free[#free + 1] = field end
+    end
+    table.sort(free)
+    return free
+end
+
 local function clone(value)
     if type(value) ~= 'table' then return value end
     local copy = {}

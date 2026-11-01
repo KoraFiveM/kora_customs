@@ -145,4 +145,35 @@ assert(calls.save.properties.plate == nil and calls.save.properties.fuelLevel ==
 assert(calls.save.properties.extras['1'] == false, 'existing cosmetic fields remain')
 assert(previewProperties.color1 == 255 and row.mods.color1 == 1, 'input and stored snapshots remain unchanged')
 
+-- Paint and window tint are charged and persisted like everything else, and a
+-- client-reported price or full preview blob changes neither.
+saveSucceeds = true
+calls = {}
+row.mods = { color1 = 1, windowTint = 0, extras = { ['1'] = false } }
+before = balance
+ok, result = quote(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, color2 = { r = 1, g = 2, b = 3 } })
+assert(ok == true and result.price == 350 + 350 + 600, 'quote covers tint, pearlescent and custom RGB')
+ok, result = purchase(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, color2 = { r = 1, g = 2, b = 3 } }, 1)
+assert(ok == false and result:find('price changed', 1, true) and balance == before, 'a forged price is refused uncharged')
+ok, result = purchase(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, color2 = { r = 1, g = 2, b = 3 } }, 1300,
+    { windowTint = 0, color1 = 255 })
+assert(ok == true and balance == before - 1300, 'tint, pearlescent and custom RGB are all charged')
+assert(calls.save.properties.windowTint == 3 and calls.save.properties.color1 == 1, 'only the purchased fields change')
+
+-- an unchanged order is not a purchase
+ok, result = quote(1, 'bennys', 99, { color1 = 1 })
+assert(ok == false and result == 'no changes selected', 'identical paint is not an order')
+
+-- a field priced at zero cannot ride along in a paid order
+local paintPrice = Config.prices.paint
+Config.prices.paint = 0
+calls.charge = nil
+ok, result = purchase(1, 'bennys', 99, { windowTint = 5, modSpoilers = 1 }, 500)
+assert(ok == false and result == 'custom shop pricing is invalid' and calls.charge == nil, 'free field is refused')
+Config.interaction.allowFreeFields = true
+ok, result = purchase(1, 'bennys', 99, { windowTint = 5, modSpoilers = 1 }, 500)
+assert(ok == true and calls.charge.amount == 500, 'allowFreeFields restores the old behaviour')
+Config.interaction.allowFreeFields = false
+Config.prices.paint = paintPrice
+
 print('qbcustoms server: ok')

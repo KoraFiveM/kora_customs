@@ -79,4 +79,40 @@ assert(eye, 'interior preset has an in-cabin eye')
 equal(eye[3], 0.2 + camera.presets.interior.eye.offset[3], 'eye offset is applied')
 equal(Customs.cameraEye(camera.presets.plate, { 0, 0, 0 }), nil, 'orbiting presets have no eye')
 
+-- The panel covers the right of the screen: the part is framed in what is left.
+local ui = Config.ui
+equal(Customs.panelWidth(ui), 720, 'panel width follows the shell minimum')
+equal(Customs.panelWidth({ layout = 'compact', width = 400 }), 420, 'compact shell minimum')
+equal(Customs.panelWidth({ width = 5000 }), 1600, 'panel width is capped')
+local shift = Customs.panelShift(camera, ui, camera.presets.interior, 1920)
+assert(math.abs(shift - (720 + 16) / 1920 / 2) < 1e-9, 'shift centres the part in the free area')
+equal(Customs.panelShift({ avoidPanel = false }, ui, {}, 1920), 0.0, 'avoidPanel = false disables the shift')
+equal(Customs.panelShift(camera, ui, { avoidPanel = false }, 1920), 0.0, 'a preset can opt out')
+equal(Customs.panelShift(camera, { placement = 'center' }, {}, 1920), 0.0, 'a centred panel needs no shift')
+assert(Customs.panelShift({ screenShift = 0.1 }, { placement = 'center' }, {}, 1920) == 0.1, 'manual shift is applied')
+
+-- Aiming right of the part moves it left of the centre, by the requested amount.
+local eyePoint, part = { 0, 0, 0 }, { 0, 5, 0 }
+local same = Customs.cameraAim(eyePoint, part, 0.0, 60.0, 16 / 9)
+equal(same[1], 0, 'no shift keeps the aim point (x)')
+equal(same[2], 5, 'no shift keeps the aim point (y)')
+local aim = Customs.cameraAim(eyePoint, part, 0.19, 65.0, 16 / 9)
+assert(aim[1] > 0 and aim[2] > 0 and aim[3] == 0, 'the camera is turned to the right of the part')
+assert(math.abs(math.sqrt(aim[1] ^ 2 + aim[2] ^ 2) - 5) < 1e-9, 'the aim point keeps its distance')
+-- project the part into the turned camera: it must land at -2 * shift in NDC
+local forwardLength = math.sqrt(aim[1] ^ 2 + aim[2] ^ 2)
+local forward, right = { aim[1] / forwardLength, aim[2] / forwardLength }, { aim[2] / forwardLength, -aim[1] / forwardLength }
+local ndc = (part[1] * right[1] + part[2] * right[2]) / (part[1] * forward[1] + part[2] * forward[2])
+    / (math.tan(math.rad(65.0) / 2) * (16 / 9))
+assert(math.abs(ndc + 2 * 0.19) < 1e-9, 'the part lands the requested fraction left of the centre')
+equal(Customs.cameraAim({ 0, 0, 0 }, { 0, 0, 3 }, 0.2, 60.0, 1.7)[3], 3, 'a straight-up look is left alone')
+
+-- The cabin view looks at the middle of the dashboard from between the seats.
+local interior = camera.presets.interior
+equal(interior.cabin, true, 'interior is a cabin preset')
+local dash = Customs.cameraTarget(interior, { -0.35, 0.4, 0.3 })
+assert(math.abs(dash[1]) < 1e-9, 'the dash target is at the middle of the cabin')
+assert(interior.eye.offset[2] < 0 and interior.eye.offset[3] > 0, 'the eye is behind and above the seat bone')
+equal(Customs.cameraTarget({}, { 1, 2, 3 })[2], 2, 'no offset leaves the target alone')
+
 print('kora_customs camera: ok')

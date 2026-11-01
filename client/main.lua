@@ -77,31 +77,6 @@ local function setExtra(id, enabled)
     if next(active.pending.extras) == nil then active.pending.extras = nil end
 end
 
-local function playHorn()
-    local vehicle = active and active.vehicle
-    if not vehicle or not DoesEntityExist(vehicle) then return end
-    local duration = math.max(100, math.floor(tonumber(Config.hornPreview and Config.hornPreview.durationMs) or 1200))
-    StartVehicleHorn(vehicle, duration, GetHashKey('HELDDOWN'), false)
-end
-
-local function preview(field, value)
-    if not active or not vehicleIsUsable(active.vehicle) then return end
-    local ok, err = Kora.vehicle.setProperties(active.vehicle, { [field] = value })
-    if not ok then return notify(err or 'Could not preview that option.', 'error') end
-    setPending(field, value)
-    if field == 'modHorns' and Config.hornPreview and Config.hornPreview.autoPlay then playHorn() end
-end
-
-local function restore()
-    if not active then return end
-    local session = active
-    active = nil
-    if DoesEntityExist(session.vehicle) then
-        Kora.vehicle.setProperties(session.vehicle, session.original, { timeout = 2000 })
-        FreezeEntityPosition(session.vehicle, session.wasFrozen)
-    end
-end
-
 -- The number the vehicle currently shows for a field: the pending preview if
 -- there is one, otherwise what it already had.
 local function currentNumber(field, fallback)
@@ -109,6 +84,111 @@ local function currentNumber(field, fallback)
     if type(value) ~= 'number' then value = active.original[field] end
     if type(value) ~= 'number' then value = fallback end
     return value
+end
+
+local function playHorn()
+    local vehicle = active and active.vehicle
+    if not vehicle or not DoesEntityExist(vehicle) then return end
+    local duration = math.max(100, math.floor(tonumber(Config.hornPreview and Config.hornPreview.durationMs) or 1200))
+    StartVehicleHorn(vehicle, duration, GetHashKey('HELDDOWN'), false)
+end
+
+-- Paint and glass are put back with direct natives as well as through
+-- Kora.vehicle.setProperties. A preview left on the entity is exactly what the
+-- garage would later save for free, so this is the part that must not fail
+-- silently (a failed network-control request, a tint value the native ignores).
+local function readAppearance(vehicle)
+    local primary, secondary = GetVehicleColours(vehicle)
+    local pearl, wheel = GetVehicleExtraColours(vehicle)
+    local snapshot = {
+        primary = primary, secondary = secondary, pearl = pearl, wheel = wheel,
+        tint = GetVehicleWindowTint(vehicle),
+    }
+    if GetIsVehiclePrimaryColourCustom(vehicle) then
+        local red, green, blue = GetVehicleCustomPrimaryColour(vehicle)
+        snapshot.customPrimary = { red, green, blue }
+    end
+    if GetIsVehicleSecondaryColourCustom(vehicle) then
+        local red, green, blue = GetVehicleCustomSecondaryColour(vehicle)
+        snapshot.customSecondary = { red, green, blue }
+    end
+    return snapshot
+end
+
+local function sameRgb(left, right)
+    if left == nil or right == nil then return left == right end
+    return left[1] == right[1] and left[2] == right[2] and left[3] == right[3]
+end
+
+local function appearanceMatches(vehicle, wanted)
+    local now = readAppearance(vehicle)
+    -- A stock tint of -1 can only be re-applied as "none" (0) on some builds.
+    local tintOk = now.tint == wanted.tint or (wanted.tint < 0 and now.tint <= 0)
+    return tintOk and now.primary == wanted.primary and now.secondary == wanted.secondary
+        and now.pearl == wanted.pearl and now.wheel == wanted.wheel
+        and sameRgb(now.customPrimary, wanted.customPrimary)
+        and sameRgb(now.customSecondary, wanted.customSecondary)
+end
+
+local function applyAppearance(vehicle, wanted)
+    ClearVehicleCustomPrimaryColour(vehicle)
+    ClearVehicleCustomSecondaryColour(vehicle)
+    SetVehicleColours(vehicle, wanted.primary, wanted.secondary)
+    if wanted.customPrimary then SetVehicleCustomPrimaryColour(vehicle, table.unpack(wanted.customPrimary)) end
+    if wanted.customSecondary then SetVehicleCustomSecondaryColour(vehicle, table.unpack(wanted.customSecondary)) end
+    SetVehicleExtraColours(vehicle, wanted.pearl, wanted.wheel)
+    SetVehicleWindowTint(vehicle, wanted.tint)
+    if wanted.tint < 0 and GetVehicleWindowTint(vehicle) > 0 then SetVehicleWindowTint(vehicle, 0) end
+end
+
+local function revertAppearance(vehicle, wanted)
+    applyAppearance(vehicle, wanted)
+    if not appearanceMatches(vehicle, wanted) then applyAppearance(vehicle, wanted) end
+    if Config.debug and not appearanceMatches(vehicle, wanted) then
+        print('kora_customs: could not restore the original paint / window tint')
+    end
+end
+
+local function preview(field, value)
+    if not active or not vehicleIsUsable(active.vehicle) then return end
+    local props = { [field] = value }
+    -- Changing the palette colours can reset the pearlescent / wheel colours
+    -- on the entity; pin them to what the preview is meant to show.
+    if field == 'color1' or field == 'color2' then
+        props.pearlescentColor = currentNumber('pearlescentColor', 0)
+        props.wheelColor = currentNumber('wheelColor', 0)
+    end
+    active.touched[field] = true
+    local ok, err = Kora.vehicle.setProperties(active.vehicle, props)
+    if not ok then return notify(err or 'Could not preview that option.', 'error') end
+    -- -1 ("Stock") is not a tint the native always accepts; show it as none.
+    if field == 'windowTint' and value < 0 and GetVehicleWindowTint(active.vehicle) ~= value then
+        SetVehicleWindowTint(active.vehicle, 0)
+    end
+    setPending(field, value)
+    if field == 'modHorns' and Config.hornPreview and Config.hornPreview.autoPlay then playHorn() end
+end
+
+-- Puts the vehicle back as it was when the shop opened. Every way out of a
+-- session that is not a completed purchase ends here: Escape, X, Discard,
+-- leaving the seat or the zone, dying, a failed checkout, resource stop.
+local function restore()
+    if not active then return end
+    local session = active
+    active = nil
+    local vehicle = session.vehicle
+    if not DoesEntityExist(vehicle) then return end
+
+    local ok, applied = pcall(Kora.vehicle.setProperties, vehicle, session.original, { timeout = 2000 })
+    if not ok or not applied then
+        -- The full snapshot was refused (control, a stale value): fall back to
+        -- just the fields this session previewed.
+        local patch = {}
+        for field in pairs(session.touched) do patch[field] = session.original[field] end
+        if next(patch) then pcall(Kora.vehicle.setProperties, vehicle, patch, { timeout = 2000 }) end
+    end
+    if session.appearance then revertAppearance(vehicle, session.appearance) end
+    FreezeEntityPosition(vehicle, session.wasFrozen)
 end
 
 local function currentBool(field)
@@ -176,7 +256,7 @@ local function scalarItem(field, price, minimum, current, names, maximum)
         { id = 'set:' .. field, label = compact and 'Pick' or 'Choose', icon = 'List', variant = 'ghost', fields = { chooser } },
     }
     if field == 'modHorns' and Config.hornPreview and Config.hornPreview.button then
-        actions[#actions + 1] = { id = 'horn:modHorns', label = 'Test horn', icon = 'Volume2', variant = 'ghost' }
+        actions[#actions + 1] = { id = 'horn:modHorns', label = 'Test horn', icon = 'Music2', variant = 'ghost' }
     end
     return {
         id = field,
@@ -279,16 +359,17 @@ local function buildNavigation()
     session.specs, session.toggles, session.extras = {}, {}, {}
 
     local amount = total()
-    local headerActions = {
-        { id = 'freecam', label = 'Freecam', icon = 'Camera', variant = 'outline' },
-        { id = 'checkout', label = 'Purchase changes', icon = 'CreditCard', variant = 'primary' },
-        {
-            id = 'discard',
-            label = 'Discard changes',
-            icon = 'X',
-            variant = 'outline',
-            confirm = amount > 0 and 'Discard every previewed change and close?' or nil,
-        },
+    local headerActions = { { id = 'freecam', label = 'Freecam', icon = 'Camera', variant = 'outline' } }
+    if not Config.ui or Config.ui.previewButton ~= false then
+        headerActions[#headerActions + 1] = { id = 'hide', label = 'Hide menu', icon = 'ScanSearch', variant = 'outline' }
+    end
+    headerActions[#headerActions + 1] = { id = 'checkout', label = 'Purchase changes', icon = 'CreditCard', variant = 'primary' }
+    headerActions[#headerActions + 1] = {
+        id = 'discard',
+        label = 'Discard changes',
+        icon = 'X',
+        variant = 'outline',
+        confirm = amount > 0 and 'Discard every previewed change and close?' or nil,
     }
 
     local function view(id, label, icon, blocks)
@@ -400,8 +481,51 @@ end
 -- being changed. Freecam has priority: while it is active the part camera is
 -- stopped and not restarted.
 local partCam, partCamName
+local cabinView
+
+-- The cabin helpers only act while the camera is inside the vehicle. They do
+-- not change the entity (SetEntityLocallyInvisible lasts a single frame), so
+-- stopping the view is all it takes to put everything back.
+local function stopCabinView()
+    cabinView = nil
+end
+
+local function clearScreenEffects()
+    if type(TriggerScreenblurFadeOut) == 'function' then TriggerScreenblurFadeOut(0.0) end
+    if type(GetTimecycleModifierIndex) == 'function' and GetTimecycleModifierIndex() ~= -1 then
+        ClearTimecycleModifier()
+    end
+end
+
+local function startCabinView(vehicle, eye)
+    local settings = Config.camera.cabin
+    if type(settings) ~= 'table' then return end
+    local view = { vehicle = vehicle }
+    cabinView = view
+    if settings.clearScreenEffects ~= false then clearScreenEffects() end
+
+    local light = type(settings.fillLight) == 'table' and settings.fillLight.enabled ~= false and settings.fillLight or nil
+    if settings.hidePed == false and not light then return end
+    CreateThread(function()
+        local seats = math.max(1, GetVehicleModelNumberOfSeats(GetEntityModel(vehicle)))
+        while cabinView == view and DoesEntityExist(vehicle) do
+            if settings.hidePed ~= false then
+                for seat = -1, seats - 2 do
+                    local ped = GetPedInVehicleSeat(vehicle, seat)
+                    if ped and ped ~= 0 then SetEntityLocallyInvisible(ped) end
+                end
+            end
+            if light then
+                DrawLightWithRange(eye.x, eye.y, eye.z, 255, 244, 229,
+                    (tonumber(light.range) or 3.5) + 0.0, (tonumber(light.intensity) or 1.0) + 0.0)
+            end
+            Wait(0)
+        end
+    end)
+end
 
 local function stopPartCamera()
+    stopCabinView()
     local cam = partCam
     partCam, partCamName = nil, nil
     if not cam then return end
@@ -430,7 +554,7 @@ local function focusPart(field, viewId)
     if not name or name == partCamName then return end
 
     local vehicle = active.vehicle
-    local target = bonePoint(vehicle, preset.bone, preset.fallback)
+    local target = Customs.cameraTarget(preset, bonePoint(vehicle, preset.bone, preset.fallback))
     local minimum, maximum = GetModelDimensions(GetEntityModel(vehicle))
     local position
     if type(preset.eye) == 'table' then
@@ -441,10 +565,17 @@ local function focusPart(field, viewId)
     local eye = GetOffsetFromEntityInWorldCoords(vehicle, position[1], position[2], position[3])
     local look = GetOffsetFromEntityInWorldCoords(vehicle, target[1], target[2], target[3])
 
+    -- Turn the view so the part lands in the free screen area beside the panel.
+    local fov = tonumber(preset.fov) or tonumber(settings.fov) or 45.0
+    local screenWidth, screenHeight = GetActiveScreenResolution()
+    local shift = Customs.panelShift(settings, Config.ui, preset, screenWidth)
+    local aim = Customs.cameraAim({ eye.x, eye.y, eye.z }, { look.x, look.y, look.z }, shift, fov,
+        screenHeight and screenHeight > 0 and screenWidth / screenHeight or 16 / 9)
+
     local cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     SetCamCoord(cam, eye.x, eye.y, eye.z)
-    PointCamAtCoord(cam, look.x, look.y, look.z)
-    SetCamFov(cam, tonumber(preset.fov) or tonumber(settings.fov) or 45.0)
+    PointCamAtCoord(cam, aim[1], aim[2], aim[3])
+    SetCamFov(cam, fov)
 
     local previous = partCam
     local duration = math.max(0, math.floor(tonumber(settings.interpMs) or 800))
@@ -459,6 +590,7 @@ local function focusPart(field, viewId)
         RenderScriptCams(true, false, 0, true, false)
     end
     partCam, partCamName = cam, name
+    if preset.cabin then startCabinView(vehicle, eye) else stopCabinView() end
     SetCamActiveWithInterp(cam, previous, duration, 1, 1)
     SetTimeout(duration + 100, function()
         if DoesCamExist(previous) then DestroyCam(previous, false) end
@@ -524,6 +656,23 @@ local function runFreecam(session)
     end
 end
 
+-- "Hide menu": the shell closes so nothing covers the view, the part camera
+-- stays, and Enter / Backspace / Escape brings the menu back. Previews are kept.
+local function runHidden(session)
+    Wait(150) -- let the shell release NUI focus first
+    while active == session and vehicleIsUsable(session.vehicle) do
+        Wait(0)
+        DisableControlAction(0, 199, true)
+        DisableControlAction(0, 200, true)
+
+        BeginTextCommandDisplayHelp('STRING')
+        AddTextComponentSubstringPlayerName('Enter / Backspace / Escape  show the menu again')
+        EndTextCommandDisplayHelp(0, false, false, -1)
+
+        if pressed(191) or pressed(177) or pressed(200) then return end
+    end
+end
+
 local function stepField(field, delta)
     local spec = active.specs[field]
     if not spec then return end
@@ -551,6 +700,7 @@ local function toggleExtra(text)
     local id = tonumber(text)
     local enabled = id and active.extras[id]
     if enabled == nil then return end
+    active.touched.extras = true
     Kora.vehicle.setProperties(active.vehicle, { extras = { [tostring(id)] = not enabled } })
     setExtra(id, not enabled)
 end
@@ -646,6 +796,10 @@ local function onAction(actionId, context)
         session.freecam = true
         return { close = true }
     end
+    if actionId == 'hide' then
+        session.hidden = true
+        return { close = true }
+    end
 
     local kind, argument, delta = actionId:match('^(%a+):([%w_]+):?(-?%d*)$')
     local handler = scalarActions[kind]
@@ -663,11 +817,15 @@ Kora.nui.registerApp({
     title = 'Custom Shop',
     description = 'Cosmetic vehicle customisation. No repairs or performance tuning.',
     icon = 'Palette',
-    layout = 'standard',
+    layout = Config.ui and Config.ui.layout == 'compact' and 'compact' or 'standard',
     defaultView = 'paint',
-    width = 400,
-    height = 900,
-    placement = 'right',
+    width = Customs.panelWidth(Config.ui),
+    height = tonumber(Config.ui and Config.ui.height) or 900,
+    placement = Config.ui and Config.ui.placement == 'center' and 'center' or 'right',
+    -- Read by app shells that support a movable panel; ignored by older ones.
+    draggable = not Config.ui or Config.ui.draggable ~= false,
+    rememberPosition = not Config.ui or Config.ui.rememberPosition ~= false,
+    positionKey = APP_ID,
     footer = 'Press Escape to cancel and revert your previews',
     navigation = { { id = 'paint', label = 'Paint', icon = 'Palette', content = { blocks = { { type = 'empty', title = 'No vehicle selected' } } } } },
     onAction = onAction,
@@ -691,36 +849,74 @@ local function open(shopId)
         vehicle = vehicle,
         original = original,
         pending = {},
+        touched = {},
+        appearance = readAppearance(vehicle),
         wasFrozen = type(IsEntityPositionFrozen) == 'function' and IsEntityPositionFrozen(vehicle) or false,
     }
     active = session
     FreezeEntityPosition(vehicle, true)
 
     CreateThread(function()
-        refresh()
-        focusPart(nil, 'paint')
-        Kora.nui.openApp(APP_ID, { viewId = 'paint' })
-
-        -- The freecam button closes the shell on purpose: fly the camera, then
-        -- reopen the shell with the previews untouched.
-        while active == session and session.freecam do
-            session.freecam = false
-            runFreecam(session)
-            if active ~= session then break end
-            if not vehicleIsUsable(session.vehicle) then
-                notify('You must remain in the driver seat.', 'error')
-                break
-            end
+        local ok, err = pcall(function()
             refresh()
-            Kora.nui.openApp(APP_ID, { viewId = session.viewId or 'paint' })
-        end
+            focusPart(nil, 'paint')
+            Kora.nui.openApp(APP_ID, { viewId = 'paint' })
+
+            -- Freecam and Hide menu close the shell on purpose: look around,
+            -- then reopen the shell with the previews untouched.
+            while active == session and (session.freecam or session.hidden) do
+                local flying = session.freecam
+                session.freecam, session.hidden = false, false
+                if flying then runFreecam(session) else runHidden(session) end
+                if active ~= session then break end
+                if not vehicleIsUsable(session.vehicle) then
+                    notify('You must remain in the driver seat.', 'error')
+                    break
+                end
+                refresh()
+                Kora.nui.openApp(APP_ID, { viewId = session.viewId or 'paint' })
+            end
+        end)
 
         -- openApp returns however the shell closed (Escape, X, discard, a
         -- completed purchase). Anything not purchased rolls the previews back,
-        -- and the camera always goes back to normal.
-        if active == session then restore() end
+        -- and the camera always goes back to normal, even if the code above
+        -- raised an error.
+        if active == session then pcall(restore) end
         stopCamera()
         stopPartCamera()
+        if not ok then
+            closeShell()
+            Kora.print.error(('kora_customs session failed: %s'):format(tostring(err)))
+        end
+    end)
+
+    -- While the shell is open nothing else notices the player being moved,
+    -- killed or kicked from the seat, or the vehicle being removed. Without
+    -- this the preview would stay on the vehicle, and a garage would later
+    -- store that look for free.
+    CreateThread(function()
+        local limit = tonumber(Config.interaction.checkoutDistance) or 12.0
+        while active == session do
+            Wait(250)
+            if active ~= session then return end
+            -- a checkout in flight finishes (or aborts) itself
+            if not session.busy then
+                local reason
+                if not vehicleIsUsable(session.vehicle) then
+                    reason = 'You must remain in the driver seat.'
+                elseif IsEntityDead(PlayerPedId()) then
+                    reason = 'Customisation cancelled; previews were reverted.'
+                elseif not Kora.distance.coords(GetEntityCoords(session.vehicle), shop.coords, limit) then
+                    reason = 'You left the custom shop; previews were reverted.'
+                end
+                if reason then
+                    restore()
+                    closeShell()
+                    return notify(reason, 'error')
+                end
+            end
+        end
     end)
 end
 
@@ -776,7 +972,7 @@ AddEventHandler('onClientResourceStart', function(resource)
 end)
 AddEventHandler('onClientResourceStop', function(resource)
     if resource == owner then
-        restore()
+        pcall(restore)
         stopCamera()
         stopPartCamera()
     end
