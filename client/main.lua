@@ -63,10 +63,6 @@ local function indexedValue(value, index)
     return result
 end
 
-------------------------------------------------------------------------
--- Session state
-------------------------------------------------------------------------
-
 local function setPending(field, value)
     if not active then return end
     if Customs.equal(value, active.original[field]) then active.pending[field] = nil
@@ -142,10 +138,6 @@ local function changeRows()
     table.sort(rows, function(a, b) return a.change < b.change end)
     return rows
 end
-
-------------------------------------------------------------------------
--- AppShell content
-------------------------------------------------------------------------
 
 -- The menu's side-scroll option: Previous/Next step through the values
 -- (wrapping, previewing straight away) and Choose jumps to one. Pass `names`
@@ -379,10 +371,6 @@ local function refresh()
     Kora.nui.updateApp(APP_ID, { title = active.label, navigation = buildNavigation() })
 end
 
-------------------------------------------------------------------------
--- Freecam
-------------------------------------------------------------------------
-
 -- Flying is Kora.freecam. The shell holds NUI focus, so the button closes it, then
 -- waits for Enter (keep the view) or Backspace (back to the previous view) and
 -- reopens it. The camera handle stays live while the shell is open and is
@@ -456,10 +444,6 @@ local function runFreecam(session)
         end
     end
 end
-
-------------------------------------------------------------------------
--- Actions
-------------------------------------------------------------------------
 
 local function stepField(field, delta)
     local spec = active.specs[field]
