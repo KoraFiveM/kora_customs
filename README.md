@@ -30,6 +30,12 @@ maps shop tabs to entries in `Config.camera.presets` (bone, fallback point,
 direction, distance, fov), so servers can tune any framing. The camera uses
 vehicle bones with a model-size fallback, is restored on close, and is stopped
 while **Freecam** is active. Set `focusParts = false` for the normal camera.
+Presets with an `eye = { bone, fallback, offset }` table put the camera inside
+the cabin (the Interior tab does); window tint uses the `sideWindow` preset.
+
+**Horn preview.** `Config.hornPreview` (`autoPlay`, `button`, `durationMs`):
+the selected horn sounds briefly when changed, and the horn row has a
+**Test horn** button. Set either to `false` to turn it off.
 
 **Who can use the shop.** There is no job check: the shop is a public,
 self-service cosmetic shop. Access is decided by the location (a `Config.shops`

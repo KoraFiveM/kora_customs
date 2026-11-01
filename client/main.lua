@@ -77,11 +77,19 @@ local function setExtra(id, enabled)
     if next(active.pending.extras) == nil then active.pending.extras = nil end
 end
 
+local function playHorn()
+    local vehicle = active and active.vehicle
+    if not vehicle or not DoesEntityExist(vehicle) then return end
+    local duration = math.max(100, math.floor(tonumber(Config.hornPreview and Config.hornPreview.durationMs) or 1200))
+    StartVehicleHorn(vehicle, duration, GetHashKey('HELDDOWN'), false)
+end
+
 local function preview(field, value)
     if not active or not vehicleIsUsable(active.vehicle) then return end
     local ok, err = Kora.vehicle.setProperties(active.vehicle, { [field] = value })
     if not ok then return notify(err or 'Could not preview that option.', 'error') end
     setPending(field, value)
+    if field == 'modHorns' and Config.hornPreview and Config.hornPreview.autoPlay then playHorn() end
 end
 
 local function restore()
@@ -162,16 +170,20 @@ local function scalarItem(field, price, minimum, current, names, maximum)
 
     local compact = Config.ui and Config.ui.compactActions
     active.specs[field] = { minimum = minimum, last = last, current = current }
+    local actions = {
+        { id = ('step:%s:-1'):format(field), label = compact and 'Prev' or 'Previous', icon = 'ChevronLeft', variant = 'outline' },
+        { id = ('step:%s:1'):format(field), label = 'Next', icon = 'ChevronRight', variant = 'outline' },
+        { id = 'set:' .. field, label = compact and 'Pick' or 'Choose', icon = 'List', variant = 'ghost', fields = { chooser } },
+    }
+    if field == 'modHorns' and Config.hornPreview and Config.hornPreview.button then
+        actions[#actions + 1] = { id = 'horn:modHorns', label = 'Test horn', icon = 'Volume2', variant = 'ghost' }
+    end
     return {
         id = field,
         label = label,
         description = ('%s · %s once%s'):format(valueName, dollars(Config.prices[price]), changed and ' · changed' or ''),
         tone = changed and 'primary' or nil,
-        actions = {
-            { id = ('step:%s:-1'):format(field), label = compact and 'Prev' or 'Previous', icon = 'ChevronLeft', variant = 'outline' },
-            { id = ('step:%s:1'):format(field), label = 'Next', icon = 'ChevronRight', variant = 'outline' },
-            { id = 'set:' .. field, label = compact and 'Pick' or 'Choose', icon = 'List', variant = 'ghost', fields = { chooser } },
-        },
+        actions = actions,
     }
 end
 
@@ -397,9 +409,9 @@ local function stopPartCamera()
     if DoesCamExist(cam) then DestroyCam(cam, false) end
 end
 
-local function bonePoint(vehicle, preset)
-    if preset.bone and type(GetEntityBoneIndexByName) == 'function' then
-        local index = GetEntityBoneIndexByName(vehicle, preset.bone)
+local function bonePoint(vehicle, bone, fallback)
+    if bone and type(GetEntityBoneIndexByName) == 'function' then
+        local index = GetEntityBoneIndexByName(vehicle, bone)
         if index and index ~= -1 then
             local world = GetWorldPositionOfEntityBone(vehicle, index)
             local localPoint = GetOffsetFromEntityGivenWorldCoords(vehicle, world.x, world.y, world.z)
@@ -407,7 +419,7 @@ local function bonePoint(vehicle, preset)
         end
     end
     local minimum, maximum = GetModelDimensions(GetEntityModel(vehicle))
-    return Customs.cameraFallbackPoint(preset, { minimum.x, minimum.y, minimum.z }, { maximum.x, maximum.y, maximum.z })
+    return Customs.cameraFallbackPoint({ fallback = fallback }, { minimum.x, minimum.y, minimum.z }, { maximum.x, maximum.y, maximum.z })
 end
 
 local function focusPart(field, viewId)
@@ -418,9 +430,14 @@ local function focusPart(field, viewId)
     if not name or name == partCamName then return end
 
     local vehicle = active.vehicle
-    local target = bonePoint(vehicle, preset)
+    local target = bonePoint(vehicle, preset.bone, preset.fallback)
     local minimum, maximum = GetModelDimensions(GetEntityModel(vehicle))
-    local position = Customs.cameraPosition(preset, target, Customs.cameraDistanceScale(maximum.y - minimum.y))
+    local position
+    if type(preset.eye) == 'table' then
+        position = Customs.cameraEye(preset, bonePoint(vehicle, preset.eye.bone, preset.eye.fallback))
+    else
+        position = Customs.cameraPosition(preset, target, Customs.cameraDistanceScale(maximum.y - minimum.y))
+    end
     local eye = GetOffsetFromEntityInWorldCoords(vehicle, position[1], position[2], position[3])
     local look = GetOffsetFromEntityInWorldCoords(vehicle, target[1], target[2], target[3])
 
@@ -605,7 +622,7 @@ local function checkout()
     end)
 end
 
-local scalarActions = { step = stepField, set = setField, toggle = toggleField, extra = toggleExtra, color = pickColor }
+local scalarActions = { step = stepField, set = setField, toggle = toggleField, extra = toggleExtra, color = pickColor, horn = playHorn }
 
 local function onAction(actionId, context)
     local session = active

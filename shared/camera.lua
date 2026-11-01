@@ -41,6 +41,20 @@ function Customs.cameraFallbackPoint(preset, minimum, maximum)
     return out
 end
 
+-- Presets with an `eye` table put the camera at a point inside the vehicle
+-- instead of orbiting the target: `eye.bone` / `eye.fallback` locate the point
+-- (same fallback fraction as `fallback`) and `eye.offset` {x, y, z} metres is
+-- added in vehicle-local space. Returns nil for orbiting presets.
+function Customs.cameraEye(preset, point)
+    if type(preset.eye) ~= 'table' then return nil end
+    local offset = type(preset.eye.offset) == 'table' and preset.eye.offset or {}
+    return {
+        point[1] + number(offset[1], 0.0),
+        point[2] + number(offset[2], 0.0),
+        point[3] + number(offset[3], 0.0),
+    }
+end
+
 -- Vehicle-local camera position for a local target point: `distance` metres
 -- along the preset's `dir`, scaled by `scale`.
 function Customs.cameraPosition(preset, target, scale)

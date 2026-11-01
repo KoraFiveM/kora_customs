@@ -28,6 +28,9 @@ Config.ui = {
 --   dir       {x, y, z} direction from that point to the camera, vehicle-local
 --   distance  metres from the point (scaled for long/short vehicles)
 --   fov       optional per-preset field of view
+--   eye       optional {bone, fallback, offset}: put the camera inside the
+--             vehicle at that point (+ offset metres, vehicle-local) instead of
+--             `distance` metres out along `dir`
 -- `fields` maps a vehicle field to a preset, `views` maps a shop tab to a
 -- preset, and `default` is used for anything not listed (paint, body, ...).
 Config.camera = {
@@ -45,7 +48,10 @@ Config.camera = {
         spoiler = { bone = 'boot', fallback = { 0.0, -0.9, 0.6 }, dir = { 0.5, -1.0, 0.45 }, distance = 4.5 },
         hood = { bone = 'bonnet', fallback = { 0.0, 0.7, 0.4 }, dir = { -0.4, 1.0, 0.8 }, distance = 4.5 },
         roof = { fallback = { 0.0, 0.0, 1.0 }, dir = { 0.0, -0.3, 1.0 }, distance = 5.5 },
-        interior = { bone = 'seat_dside_f', fallback = { -0.3, 0.0, 0.3 }, dir = { -1.0, -0.15, 0.2 }, distance = 1.8, fov = 55.0 },
+        -- `eye` places the camera inside the cabin (passenger seat, head height)
+        -- looking at the steering wheel / dashboard.
+        interior = { bone = 'steeringwheel', fallback = { -0.35, 0.3, 0.2 }, fov = 65.0, eye = { bone = 'seat_pside_f', fallback = { 0.35, 0.0, 0.0 }, offset = { 0.0, -0.1, 0.45 } } },
+        sideWindow = { bone = 'window_lf', fallback = { -1.0, 0.1, 0.35 }, dir = { -1.0, 0.1, 0.15 }, distance = 3.0, fov = 40.0 },
         plate = { bone = 'numberplate', fallback = { 0.0, -1.0, -0.3 }, dir = { 0.0, -1.0, 0.1 }, distance = 2.2, fov = 40.0 },
         lights = { bone = 'headlight_l', fallback = { -0.6, 1.0, 0.0 }, dir = { -0.5, 1.0, 0.15 }, distance = 3.5 },
         underglow = { fallback = { 0.0, 0.0, -0.8 }, dir = { -0.9, 0.6, 0.12 }, distance = 5.0 },
@@ -62,6 +68,7 @@ Config.camera = {
         modSeats = 'interior', modSteeringWheel = 'interior', modShifterLeavers = 'interior', modAPlate = 'interior',
         modSpeakers = 'interior', modHorns = 'interior',
         modPlateHolder = 'plate', modVanityPlate = 'plate', plateIndex = 'plate',
+        windowTint = 'sideWindow',
         modXenon = 'lights', xenonColor = 'lights',
         neonEnabled = 'underglow', neonColor = 'underglow',
         modSmokeEnabled = 'wheelRear', tyreSmokeColor = 'wheelRear',
@@ -70,6 +77,16 @@ Config.camera = {
         paint = 'overview', body = 'overview', wheels = 'wheelFront', interior = 'interior',
         lighting = 'lights', plate = 'plate', extras = 'overview', review = 'overview',
     },
+}
+
+-- Horn preview: the horn option is hard to judge by name alone.
+--   autoPlay    sound the selected horn briefly whenever it changes
+--   button      add a "Test horn" button to the horn row
+--   durationMs  how long the horn sounds
+Config.hornPreview = {
+    autoPlay = true,
+    button = true,
+    durationMs = 1200,
 }
 
 Config.blip = {
