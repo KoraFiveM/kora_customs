@@ -32,9 +32,6 @@ local fieldLabels = {
 }
 for _, definition in ipairs(Customs.modFields) do fieldLabels[definition.field] = definition.label end
 
--- Cosmetic mod slots are grouped into shop sections by their price group.
-local modSections = { body = 'body', interior = 'interior', wheels = 'wheels', plate = 'plate' }
-
 local function notify(message, kind)
     Kora.notify.send({ title = 'Custom Shop', message = message, type = kind or 'info' })
 end
@@ -257,7 +254,7 @@ end
 local function sectionItems(sectionName, leading)
     local items = leading or {}
     for _, definition in ipairs(Customs.modFields) do
-        if modSections[definition.price] == sectionName then
+        if definition.price == sectionName then
             local item = modItem(definition)
             if item then items[#items + 1] = item end
         end
@@ -726,8 +723,7 @@ local function registerTargets()
                     label = ('Customise vehicle at %s'):format(shop.label),
                     icon = 'palette',
                     canInteract = function()
-                        local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-                        return vehicleIsUsable(vehicle)
+                        return vehicleIsUsable(GetVehiclePedIsIn(PlayerPedId(), false))
                     end,
                     onSelect = function() open(shopId) end,
                 },
