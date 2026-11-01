@@ -10,6 +10,12 @@ Config.interaction = {
     requireSameBucket = true,
 }
 
+Config.ui = {
+    -- Use short action labels (Prev / Next / Pick) on option rows. Off by
+    -- default; rows already wrap their buttons below the text when narrow.
+    compactActions = false,
+}
+
 Config.blip = {
     enabled = true,
     sprite = 72,

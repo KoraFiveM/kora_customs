@@ -20,7 +20,7 @@ employee job, servicing, or performance upgrades are included.
 Configure locations and prices in `config.lua`. Players target a shop while
 sitting in the driver seat of an owned vehicle. Side-scroll menu values to
 preview them, then choose **Purchase changes**. The bank account is used by
-default.
+default. Set `Config.ui.compactActions = true` for short Prev/Next/Pick button labels.
 
 Performance fields (`modEngine`, `modBrakes`, `modTransmission`,
 `modSuspension`, `modArmor`, and `modTurbo`) and vehicle condition/fuel are not

@@ -171,6 +171,7 @@ local function scalarItem(field, price, minimum, current, names, maximum)
     -- stack prefill through `value`. Setting both pre-fills either way.
     chooser.value, chooser.required = chooser.default, true
 
+    local compact = Config.ui and Config.ui.compactActions
     active.specs[field] = { minimum = minimum, last = last, current = current }
     return {
         id = field,
@@ -178,9 +179,9 @@ local function scalarItem(field, price, minimum, current, names, maximum)
         description = ('%s · %s once%s'):format(valueName, dollars(Config.prices[price]), changed and ' · changed' or ''),
         tone = changed and 'primary' or nil,
         actions = {
-            { id = ('step:%s:-1'):format(field), label = 'Previous', icon = 'ChevronLeft', variant = 'outline' },
+            { id = ('step:%s:-1'):format(field), label = compact and 'Prev' or 'Previous', icon = 'ChevronLeft', variant = 'outline' },
             { id = ('step:%s:1'):format(field), label = 'Next', icon = 'ChevronRight', variant = 'outline' },
-            { id = 'set:' .. field, label = 'Choose', icon = 'List', variant = 'ghost', fields = { chooser } },
+            { id = 'set:' .. field, label = compact and 'Pick' or 'Choose', icon = 'List', variant = 'ghost', fields = { chooser } },
         },
     }
 end
