@@ -387,6 +387,70 @@ local function stopCamera()
     end
 end
 
+-- Part camera (Config.camera): a scripted camera that glides to frame the part
+-- being changed. Freecam has priority: while it is active the part camera is
+-- stopped and not restarted.
+local partCam, partCamName
+
+local function stopPartCamera()
+    local cam = partCam
+    partCam, partCamName = nil, nil
+    if not cam then return end
+    RenderScriptCams(false, false, 0, true, false)
+    if DoesCamExist(cam) then DestroyCam(cam, false) end
+end
+
+local function bonePoint(vehicle, preset)
+    if preset.bone and type(GetEntityBoneIndexByName) == 'function' then
+        local index = GetEntityBoneIndexByName(vehicle, preset.bone)
+        if index and index ~= -1 then
+            local world = GetWorldPositionOfEntityBone(vehicle, index)
+            local localPoint = GetOffsetFromEntityGivenWorldCoords(vehicle, world.x, world.y, world.z)
+            return { localPoint.x, localPoint.y, localPoint.z }
+        end
+    end
+    local minimum, maximum = GetModelDimensions(GetEntityModel(vehicle))
+    return Customs.cameraFallbackPoint(preset, { minimum.x, minimum.y, minimum.z }, { maximum.x, maximum.y, maximum.z })
+end
+
+local function focusPart(field, viewId)
+    local settings = Config.camera
+    if not active or not vehicleIsUsable(active.vehicle) then return end
+    if viewHandle and viewHandle.isActive() then return end
+    local name, preset = Customs.cameraPreset(field, viewId, settings)
+    if not name or name == partCamName then return end
+
+    local vehicle = active.vehicle
+    local target = bonePoint(vehicle, preset)
+    local minimum, maximum = GetModelDimensions(GetEntityModel(vehicle))
+    local position = Customs.cameraPosition(preset, target, Customs.cameraDistanceScale(maximum.y - minimum.y))
+    local eye = GetOffsetFromEntityInWorldCoords(vehicle, position[1], position[2], position[3])
+    local look = GetOffsetFromEntityInWorldCoords(vehicle, target[1], target[2], target[3])
+
+    local cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    SetCamCoord(cam, eye.x, eye.y, eye.z)
+    PointCamAtCoord(cam, look.x, look.y, look.z)
+    SetCamFov(cam, tonumber(preset.fov) or tonumber(settings.fov) or 45.0)
+
+    local previous = partCam
+    local duration = math.max(0, math.floor(tonumber(settings.interpMs) or 800))
+    if not previous then
+        -- start from the gameplay view so the first move glides too
+        previous = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+        local from, rotation = GetGameplayCamCoord(), GetGameplayCamRot(2)
+        SetCamCoord(previous, from.x, from.y, from.z)
+        SetCamRot(previous, rotation.x, rotation.y, rotation.z, 2)
+        SetCamFov(previous, GetGameplayCamFov())
+        SetCamActive(previous, true)
+        RenderScriptCams(true, false, 0, true, false)
+    end
+    partCam, partCamName = cam, name
+    SetCamActiveWithInterp(cam, previous, duration, 1, 1)
+    SetTimeout(duration + 100, function()
+        if DoesCamExist(previous) then DestroyCam(previous, false) end
+    end)
+end
+
 local function poseOf(handle)
     local coords, rotation = handle.getCoords(), handle.getRotation()
     if not coords or not rotation then return nil end
@@ -423,6 +487,7 @@ end
 local function runFreecam(session)
     local existing = viewHandle and viewHandle.isActive()
     local before = existing and poseOf(viewHandle) or nil
+    stopPartCamera()
     local handle = existing and viewHandle or startView()
     if not handle then return end
 
@@ -573,6 +638,7 @@ local function onAction(actionId, context)
     if not handler then return end
 
     handler(argument, kind == 'step' and delta or context or {})
+    focusPart(kind == 'extra' and 'extras' or argument, session.viewId)
     refresh()
 end
 
@@ -618,6 +684,7 @@ local function open(shopId)
 
     CreateThread(function()
         refresh()
+        focusPart(nil, 'paint')
         Kora.nui.openApp(APP_ID, { viewId = 'paint' })
 
         -- The freecam button closes the shell on purpose: fly the camera, then
@@ -639,6 +706,7 @@ local function open(shopId)
         -- and the camera always goes back to normal.
         if active == session then restore() end
         stopCamera()
+        stopPartCamera()
     end)
 end
 
@@ -697,6 +765,7 @@ AddEventHandler('onClientResourceStop', function(resource)
     if resource == owner then
         restore()
         stopCamera()
+        stopPartCamera()
     end
 end)
 

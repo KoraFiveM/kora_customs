@@ -16,6 +16,62 @@ Config.ui = {
     compactActions = false,
 }
 
+-- Part camera: while the shop is open, selecting an option moves a scripted
+-- camera to frame the part being changed. Set focusParts = false to keep the
+-- normal camera. Freecam always takes priority while it is active.
+--   interpMs  glide time between framings (milliseconds)
+--   fov       default field of view
+-- Each preset frames one point on the vehicle:
+--   bone      vehicle bone to aim at (falls back to `fallback` when missing)
+--   fallback  {x, y, z} point as a fraction (-1..1) of the model's half size
+--             from its centre; x = right, y = front, z = up
+--   dir       {x, y, z} direction from that point to the camera, vehicle-local
+--   distance  metres from the point (scaled for long/short vehicles)
+--   fov       optional per-preset field of view
+-- `fields` maps a vehicle field to a preset, `views` maps a shop tab to a
+-- preset, and `default` is used for anything not listed (paint, body, ...).
+Config.camera = {
+    focusParts = true,
+    interpMs = 800,
+    fov = 45.0,
+    default = 'overview',
+    presets = {
+        overview = { fallback = { 0.0, 0.0, 0.2 }, dir = { -0.8, 1.0, 0.35 }, distance = 6.5 },
+        wheelFront = { bone = 'wheel_lf', fallback = { -1.0, 0.6, -0.6 }, dir = { -1.0, 0.0, 0.12 }, distance = 2.6, fov = 40.0 },
+        wheelRear = { bone = 'wheel_lr', fallback = { -1.0, -0.6, -0.6 }, dir = { -1.0, 0.0, 0.12 }, distance = 2.6, fov = 40.0 },
+        front = { bone = 'bumper_f', fallback = { 0.0, 1.0, -0.3 }, dir = { -0.3, 1.0, 0.2 }, distance = 4.0 },
+        rear = { bone = 'bumper_r', fallback = { 0.0, -1.0, -0.3 }, dir = { 0.3, -1.0, 0.2 }, distance = 4.0 },
+        exhaust = { bone = 'exhaust', fallback = { 0.0, -1.0, -0.6 }, dir = { 0.3, -1.0, 0.2 }, distance = 3.0 },
+        spoiler = { bone = 'boot', fallback = { 0.0, -0.9, 0.6 }, dir = { 0.5, -1.0, 0.45 }, distance = 4.5 },
+        hood = { bone = 'bonnet', fallback = { 0.0, 0.7, 0.4 }, dir = { -0.4, 1.0, 0.8 }, distance = 4.5 },
+        roof = { fallback = { 0.0, 0.0, 1.0 }, dir = { 0.0, -0.3, 1.0 }, distance = 5.5 },
+        interior = { bone = 'seat_dside_f', fallback = { -0.3, 0.0, 0.3 }, dir = { -1.0, -0.15, 0.2 }, distance = 1.8, fov = 55.0 },
+        plate = { bone = 'numberplate', fallback = { 0.0, -1.0, -0.3 }, dir = { 0.0, -1.0, 0.1 }, distance = 2.2, fov = 40.0 },
+        lights = { bone = 'headlight_l', fallback = { -0.6, 1.0, 0.0 }, dir = { -0.5, 1.0, 0.15 }, distance = 3.5 },
+        underglow = { fallback = { 0.0, 0.0, -0.8 }, dir = { -0.9, 0.6, 0.12 }, distance = 5.0 },
+    },
+    fields = {
+        wheels = 'wheelFront', wheelColor = 'wheelFront', modFrontWheels = 'wheelFront', modCustomTiresF = 'wheelFront',
+        modBackWheels = 'wheelRear', modCustomTiresR = 'wheelRear',
+        modFrontBumper = 'front', modGrille = 'front', modHydrolic = 'front', modStruts = 'hood',
+        modRearBumper = 'rear', modExhaust = 'exhaust', modSpoilers = 'spoiler', modTrunk = 'spoiler',
+        modHood = 'hood', modEngineBlock = 'hood', modAirFilter = 'hood',
+        modRoof = 'roof', modAerials = 'roof',
+        dashboardColor = 'interior', interiorColor = 'interior', modTrimA = 'interior', modTrimB = 'interior',
+        modOrnaments = 'interior', modDashboard = 'interior', modDial = 'interior', modDoorSpeaker = 'interior',
+        modSeats = 'interior', modSteeringWheel = 'interior', modShifterLeavers = 'interior', modAPlate = 'interior',
+        modSpeakers = 'interior', modHorns = 'interior',
+        modPlateHolder = 'plate', modVanityPlate = 'plate', plateIndex = 'plate',
+        modXenon = 'lights', xenonColor = 'lights',
+        neonEnabled = 'underglow', neonColor = 'underglow',
+        modSmokeEnabled = 'wheelRear', tyreSmokeColor = 'wheelRear',
+    },
+    views = {
+        paint = 'overview', body = 'overview', wheels = 'wheelFront', interior = 'interior',
+        lighting = 'lights', plate = 'plate', extras = 'overview', review = 'overview',
+    },
+}
+
 Config.blip = {
     enabled = true,
     sprite = 72,
