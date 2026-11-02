@@ -155,25 +155,52 @@ Config.camera = {
 }
 
 -- Horn preview: the horn option is hard to judge by name alone.
---   autoPlay    sound the selected horn whenever it changes (Previous/Next/Choose)
---   button      add a "Test horn" button to the horn row
---   durationMs  how long a single (non-held) preview sounds
---   holdToTest  Test horn sustains the horn instead of one short honk, so long
---               or musical horns can be heard in full. false = old click behaviour.
---               Press/release needs menu support; until the menu reports them a
---               click toggles it on/off (see holdKey for a true hold).
---   maxHoldMs   safety cap on a sustained horn; it always stops when the menu
---               closes, the player leaves the vehicle or the resource stops
---   holdKey     default key (a RegisterKeyMapping key name) that sounds the horn
---               while held, with the menu open and holdToTest on; false = none.
---               Players can rebind it in their key settings.
+--   autoPlay      sound the selected horn whenever it changes (Previous/Next/Choose)
+--   button        add a "Test horn" button to the horn row; each press plays the
+--                 horn once from the start (pressing again restarts it)
+--   durationMs    how long one preview sounds. Long enough for the musical and
+--                 classical horns to finish; a plain horn sounds for this long
+--   startDelayMs  pause before sounding, so a previous preview is cut cleanly
+--                 and a horn fitted the same moment is the one heard
+--   mode          StartVehicleHorn mode: 'HELDDOWN' (held horn) or 'NORMAL'
+--   holdToTest    also sound the horn while holdKey is held, up to maxHoldMs.
+--                 The game only sees keys while the panel is hidden (Hide menu),
+--                 so this is an extra, off by default
+--   maxHoldMs     cap on a held horn; it always stops when the key is released,
+--                 the menu closes, the player leaves the vehicle or the resource stops
+--   holdKey       RegisterKeyMapping key for holdToTest (players can rebind it);
+--                 false = no key mapping
 Config.hornPreview = {
     autoPlay = true,
     button = true,
-    durationMs = 2500,
-    holdToTest = true,
+    durationMs = 4000,
+    startDelayMs = 150,
+    mode = 'HELDDOWN',
+    holdToTest = false,
     maxHoldMs = 15000,
-    holdKey = 'H',
+    holdKey = false,
+}
+
+-- Self-service repair at the shop zones, for when no mechanic is around.
+-- Drivers get a "Repair vehicle" target option that fixes the engine, body and
+-- fuel tank for `price`, after a `durationMs` progress bar. The server checks
+-- the shop, the vehicle (driver seat, distance, routing bucket), the on-duty
+-- mechanic count, the cooldown and the payment; the client only applies it.
+--   enabled             offer the option at all
+--   onlyWhenNoMechanics hide/refuse it while any `mechanicJobs` player is on duty
+--   mechanicJobs        job names counted as mechanics (kora_core on-duty counts)
+--   price               cost of one repair; 0 = free
+--   account             money account charged
+--   durationMs          progress bar length
+--   cooldownSeconds     per character, between completed repairs
+Config.selfRepair = {
+    enabled = true,
+    onlyWhenNoMechanics = true,
+    mechanicJobs = { 'mechanic' },
+    price = 750,
+    account = 'bank',
+    durationMs = 10000,
+    cooldownSeconds = 120,
 }
 
 Config.blip = {

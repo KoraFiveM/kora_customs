@@ -1,6 +1,7 @@
 local owner = GetCurrentResourceName()
 local APP_ID = 'qbcustoms:shop'
 local active
+local repairing = false -- a self-service repair (Config.selfRepair) is running
 
 local wheelTypes = {
     'Sport', 'Muscle', 'Lowrider', 'SUV', 'Offroad', 'Tuner', 'Bike',
@@ -100,60 +101,44 @@ local function hornOption(name, default)
     return value and math.floor(value) or default
 end
 
-local hornHold = 0 -- token of the running hold; 0 when no horn is held
+-- StartVehicleHorn sounds the fitted horn for a set time. Calling it again
+-- while it sounds starts the sample over, so each preview calls it exactly
+-- once: re-triggering it on a timer made long and musical horns stutter in a
+-- loop and never reach the end, and kept streamed horns from starting at all.
+local hornToken, hornVehicle, hornUntil = 0, nil, 0
 
--- Ends a held horn. Safe to call at any time.
-local function stopHorn()
-    if hornHold == 0 then return end
-    hornHold = 0
-    local vehicle = active and active.vehicle
-    -- a 1 ms horn replaces the sustained one and so cuts it off
-    if vehicle and DoesEntityExist(vehicle) then StartVehicleHorn(vehicle, 1, GetHashKey('HELDDOWN'), false) end
+local function hornMode()
+    local mode = Config.hornPreview and Config.hornPreview.mode
+    return GetHashKey(type(mode) == 'string' and mode ~= '' and mode or 'HELDDOWN')
 end
 
--- Keeps the selected horn sounding until stopHorn(), maxHoldMs, the menu
--- closing, or the player leaving the vehicle.
-local function startHorn()
+-- Silences a sounding preview and cancels one about to start. Safe at any time.
+local function stopHorn()
+    hornToken = hornToken + 1
+    local vehicle, sounding = hornVehicle, GetGameTimer() < hornUntil
+    hornVehicle, hornUntil = nil, 0
+    -- a 1 ms horn replaces the running one and so cuts it off
+    if sounding and vehicle and DoesEntityExist(vehicle) then StartVehicleHorn(vehicle, 1, hornMode(), false) end
+end
+
+-- Sounds the selected horn once for `duration` ms, from the start: a preview
+-- already playing is cut first. The short delay lets that cut land and the
+-- game pick up a horn mod fitted this frame, so the new horn is the one heard.
+local function playHorn(duration)
     local vehicle = active and active.vehicle
     if not vehicle or not DoesEntityExist(vehicle) then return end
     stopHorn()
-    local token = GetGameTimer()
-    if token == 0 then token = 1 end
-    hornHold = token
-    local limit = math.max(500, hornOption('maxHoldMs', 15000))
-    local started = GetGameTimer()
-    CreateThread(function()
-        while hornHold == token do
-            local now = GetGameTimer()
-            if not active or active.vehicle ~= vehicle or not DoesEntityExist(vehicle)
-                or not Kora.nui.isAppOpen(APP_ID)
-                or GetVehiclePedIsIn(PlayerPedId(), false) ~= vehicle
-                or now - started >= limit then
-                break
-            end
-            -- re-trigger slightly ahead of expiry so the sound is continuous
-            StartVehicleHorn(vehicle, 400, GetHashKey('HELDDOWN'), false)
-            Wait(300)
-        end
-        if hornHold == token then stopHorn() end
+    local token = hornToken
+    SetTimeout(math.max(0, hornOption('startDelayMs', 150)), function()
+        if token ~= hornToken or not active or active.vehicle ~= vehicle or not DoesEntityExist(vehicle) then return end
+        duration = math.max(100, duration or hornOption('durationMs', 4000))
+        hornVehicle, hornUntil = vehicle, GetGameTimer() + duration
+        StartVehicleHorn(vehicle, duration, hornMode(), false)
     end)
 end
 
--- One short preview (autoPlay, and the Test horn button when holdToTest is off).
-local function playHorn()
-    local vehicle = active and active.vehicle
-    if not vehicle or not DoesEntityExist(vehicle) then return end
-    StartVehicleHorn(vehicle, math.max(100, hornOption('durationMs', 2500)), GetHashKey('HELDDOWN'), false)
-end
-
--- The Test horn button. The menu only reports clicks today, so with holdToTest
--- a click toggles the sustained horn; hornstart/hornstop (below) are the
--- press/release pair for a menu that reports them.
+-- The Test horn button: plays the horn once; pressing it again restarts it.
 local function testHorn()
-    if Config.hornPreview and Config.hornPreview.holdToTest then
-        if hornHold ~= 0 then return stopHorn() end
-        return startHorn()
-    end
     playHorn()
 end
 
@@ -880,7 +865,7 @@ local function checkout()
     end)
 end
 
-local scalarActions = { step = stepField, set = setField, toggle = toggleField, extra = toggleExtra, color = pickColor, horn = testHorn, hornstart = startHorn, hornstop = stopHorn }
+local scalarActions = { step = stepField, set = setField, toggle = toggleField, extra = toggleExtra, color = pickColor, horn = testHorn }
 
 local function onAction(actionId, context)
     local session = active
@@ -956,6 +941,7 @@ if not registered then error(registerErr, 0) end
 
 local function open(shopId)
     if active then return notify('A customisation session is already open.', 'warning') end
+    if repairing then return notify('Wait for the repair to finish.', 'warning') end
     local shop = Config.shops[shopId]
     if not shop then return end
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
@@ -1045,6 +1031,81 @@ local function open(shopId)
     end)
 end
 
+-- Self-service repair (Config.selfRepair). The server re-checks the shop,
+-- seat, distance, on-duty mechanics and cooldown, and charges; this side only
+-- asks, shows the progress bar and fixes the vehicle once it is paid for.
+local function repairSettings()
+    local settings = Config.selfRepair
+    return type(settings) == 'table' and settings.enabled == true and settings or nil
+end
+
+-- Only hides the option: kora_core replicates on-duty counts to every client.
+local function mechanicsOnDuty(settings)
+    if settings.onlyWhenNoMechanics == false then return false end
+    local counts = GlobalState.OnDuty
+    if type(counts) ~= 'table' then return false end
+    return Customs.mechanicsOnDuty(settings.mechanicJobs, function(job) return counts[job] end) > 0
+end
+
+local function needsRepair(vehicle)
+    return GetVehicleEngineHealth(vehicle) < 1000.0 or GetVehicleBodyHealth(vehicle) < 1000.0
+        or GetVehiclePetrolTankHealth(vehicle) < 1000.0
+end
+
+local function fixVehicle(vehicle)
+    SetVehicleFixed(vehicle)
+    SetVehicleDeformationFixed(vehicle)
+    SetVehicleEngineHealth(vehicle, 1000.0)
+    SetVehicleBodyHealth(vehicle, 1000.0)
+    SetVehiclePetrolTankHealth(vehicle, 1000.0)
+    SetVehicleUndriveable(vehicle, false)
+end
+
+local function repairVehicle(shopId)
+    local settings = repairSettings()
+    if not settings or repairing then return end
+    if active then return notify('Close the custom shop first.', 'warning') end
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    if not vehicleIsUsable(vehicle) then return notify('Sit in the driver seat of your vehicle.', 'error') end
+    if not needsRepair(vehicle) then return notify('This vehicle does not need a repair.', 'info') end
+    local netId = NetworkGetNetworkIdFromEntity(vehicle)
+    if not netId or netId == 0 then return notify('This vehicle is not networked.', 'error') end
+
+    repairing = true
+    CreateThread(function()
+        local ok, err = pcall(function()
+            local confirmation = Kora.nui.openAlert({
+                title = 'Repair vehicle',
+                message = ('Repair the engine and bodywork for %s?'):format(dollars(math.max(0, tonumber(settings.price) or 0))),
+                confirmLabel = 'Repair',
+            })
+            if not confirmation or not confirmation.confirmed then return end
+
+            local started, ticket = Kora.callback.trigger('kora_customs:repairStart', shopId, netId)
+            if not started then return notify(ticket or 'You cannot repair your vehicle here right now.', 'error') end
+
+            local completed = Kora.progressbar.start({
+                label = 'Repairing vehicle...',
+                duration = ticket.durationMs,
+                canCancel = true,
+                disable = { car = true, combat = true },
+            })
+            if not completed then return notify('Repair cancelled.', 'error') end
+            if not vehicleIsUsable(vehicle) then return notify('You must remain in the driver seat.', 'error') end
+            if not Kora.vehicle.requestControl(vehicle, 2000) then
+                return notify('Could not get control of the vehicle. Try again.', 'error')
+            end
+
+            local paid, result = Kora.callback.trigger('kora_customs:repairFinish')
+            if not paid then return notify(result or 'The repair failed.', 'error') end
+            fixVehicle(vehicle)
+            notify(('Vehicle repaired for %s.'):format(dollars(result.price)), 'success')
+        end)
+        repairing = false
+        if not ok then Kora.print.error(('kora_customs repair failed: %s'):format(tostring(err))) end
+    end)
+end
+
 local targetIds = {}
 local function registerTargets()
     for _, id in pairs(targetIds) do exports.kora_target:removeZone(id) end
@@ -1065,6 +1126,16 @@ local function registerTargets()
                     end,
                     onSelect = function() open(shopId) end,
                 },
+                repairSettings() and {
+                    label = ('Repair vehicle (%s)'):format(dollars(math.max(0, tonumber(Config.selfRepair.price) or 0))),
+                    icon = 'wrench',
+                    canInteract = function()
+                        local settings = repairSettings()
+                        return settings ~= nil and not active and not repairing and not mechanicsOnDuty(settings)
+                            and vehicleIsUsable(GetVehiclePedIsIn(PlayerPedId(), false))
+                    end,
+                    onSelect = function() repairVehicle(shopId) end,
+                } or nil,
             },
         })
     end
@@ -1083,7 +1154,9 @@ local function registerBlips()
             info = {
                 title = shop.label,
                 rows = {
-                    { kind = 'wrappedText', value = 'Cosmetic vehicle customisation. No repairs or performance tuning.' },
+                    { kind = 'wrappedText', value = repairSettings()
+                        and 'Cosmetic vehicle customisation. Self-service repairs when no mechanic is on duty.'
+                        or 'Cosmetic vehicle customisation. No repairs or performance tuning.' },
                 },
             },
         })
@@ -1104,10 +1177,11 @@ AddEventHandler('onClientResourceStop', function(resource)
     end
 end)
 
--- Key-hold fallback for the same preview while the menu is open.
--- Config.hornPreview.holdKey = false disables it.
+-- Hold-to-test (Config.hornPreview.holdToTest): the horn sounds while holdKey
+-- is held, up to maxHoldMs. The game only sees keys while the panel is hidden
+-- (Hide menu), so this is an opt-in extra to the Test horn button.
 RegisterCommand('+kora_customs_horn', function()
-    if active and Config.hornPreview and Config.hornPreview.holdToTest then startHorn() end
+    if active and Config.hornPreview and Config.hornPreview.holdToTest then playHorn(hornOption('maxHoldMs', 15000)) end
 end, false)
 RegisterCommand('-kora_customs_horn', function() stopHorn() end, false)
 if Config.hornPreview and Config.hornPreview.holdKey then

@@ -224,3 +224,18 @@ function Customs.merge(existing, patch)
     end
     return merged
 end
+
+-- On-duty players across the mechanic job names (Config.selfRepair). `count`
+-- returns one job's on-duty count: kora_core on the server, the replicated
+-- GlobalState.OnDuty table on the client.
+---@param jobs string[]|nil
+---@param count fun(job: string): number|nil
+---@return integer
+function Customs.mechanicsOnDuty(jobs, count)
+    local total = 0
+    if type(jobs) ~= 'table' then return total end
+    for _, job in ipairs(jobs) do
+        if type(job) == 'string' then total = total + math.max(0, math.floor(tonumber(count(job)) or 0)) end
+    end
+    return total
+end

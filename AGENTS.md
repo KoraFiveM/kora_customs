@@ -7,6 +7,11 @@ mechanic job, repair system, performance tuner, or vehicle garage. Keep engine,
 brakes, transmission, suspension, armour, turbo, condition, fuel, ownership,
 and vehicle state outside this resource.
 
+The one exception is `Config.selfRepair`: an opt-out, paid self-service repair
+for when no mechanic is on duty. The server counts on-duty mechanics, checks the
+shop, seat, distance, cooldown and elapsed progress time, and charges before
+the client fixes the vehicle. Keep it a fallback, not a mechanic feature set.
+
 ## Authority
 
 The client may preview cosmetic changes, but checkout is authoritative on the

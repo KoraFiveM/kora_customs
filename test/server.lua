@@ -85,6 +85,8 @@ GetVehicleNumberPlateText = function() return ' TEST01 ' end
 GetEntityModel = function() return 100 end
 joaat = function() return 100 end
 
+AddEventHandler = function() end
+GetGameTimer = function() return 0 end
 dofile('server/main.lua')
 local quote = handlers['qbcustoms:quote']
 local purchase = handlers['qbcustoms:purchase']

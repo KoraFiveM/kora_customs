@@ -147,3 +147,72 @@ Kora.callback.register('qbcustoms:purchase', function(src, shopId, netId, reques
     if not result then return false, err end
     return true, err
 end, { rateLimit = { max = 4, window = 10000 } })
+
+-- Self-service repair (Config.selfRepair). repairStart checks everything and
+-- opens a ticket; repairFinish, once the progress bar has had time to run,
+-- checks it all again, charges, and lets the client fix the vehicle.
+local repairTickets, repairCooldowns = {}, {}
+
+local function repairSettings()
+    return type(Config.selfRepair) == 'table' and Config.selfRepair or {}
+end
+
+local function repairPrice()
+    return math.max(0, math.floor(tonumber(repairSettings().price) or 0))
+end
+
+local function checkRepair(src, shopId, netId)
+    local settings = repairSettings()
+    if settings.enabled ~= true then return nil, 'repairs are not offered here' end
+    local resolved, resolveErr = resolveShop(src, shopId)
+    if not resolved then return nil, resolveErr end
+    local vehicle, vehicleErr = resolveVehicle(src, resolved, netId)
+    if not vehicle then return nil, vehicleErr end
+
+    if settings.onlyWhenNoMechanics ~= false then
+        local onDuty = Customs.mechanicsOnDuty(settings.mechanicJobs, function(job) return core('getDutyCount', job) end)
+        if onDuty > 0 then return nil, 'a mechanic is on duty; ask them for a repair' end
+    end
+
+    local citizenid = core('getPlayerData', src, { 'citizenid' })
+    local key = type(citizenid) == 'string' and citizenid or ('player:%d'):format(src)
+    local wait = (repairCooldowns[key] or 0) - GetGameTimer()
+    if wait > 0 then return nil, ('you can repair here again in %d seconds'):format(math.ceil(wait / 1000)) end
+    return { key = key }
+end
+
+Kora.callback.register('kora_customs:repairStart', function(src, shopId, netId)
+    local checked, err = checkRepair(src, shopId, netId)
+    if not checked then return false, err end
+    local duration = math.max(1000, math.floor(tonumber(repairSettings().durationMs) or 10000))
+    repairTickets[src] = { shopId = shopId, netId = netId, startedAt = GetGameTimer(), duration = duration }
+    return true, { price = repairPrice(), durationMs = duration }
+end, { rateLimit = { max = 4, window = 10000 } })
+
+Kora.callback.register('kora_customs:repairFinish', function(src)
+    local ticket = repairTickets[src]
+    repairTickets[src] = nil -- single use, even when refused
+    if not ticket then return false, 'start the repair again' end
+    local elapsed = GetGameTimer() - ticket.startedAt
+    -- the bar runs on the client after the start reply; allow for the round trip
+    if elapsed < ticket.duration - 1000 then return false, 'the repair was not finished' end
+    if elapsed > ticket.duration + 60000 then return false, 'the repair took too long; start again' end
+
+    local checked, err = checkRepair(src, ticket.shopId, ticket.netId)
+    if not checked then return false, err end
+
+    local settings, price = repairSettings(), repairPrice()
+    if price > 0 then
+        local paid, payErr = core('removeMoney', src, settings.account or Config.interaction.account, price, 'vehicle-self-repair')
+        if not paid then return false, payErr or 'insufficient funds' end
+    end
+    repairCooldowns[checked.key] = GetGameTimer() + math.max(0, tonumber(settings.cooldownSeconds) or 0) * 1000
+    pcall(function()
+        exports.kora_core:logEvent('vehicle-self-repair', src, { shop = ticket.shopId, price = price })
+    end)
+    return true, { price = price }
+end, { rateLimit = { max = 4, window = 10000 } })
+
+AddEventHandler('playerDropped', function()
+    repairTickets[source] = nil
+end)

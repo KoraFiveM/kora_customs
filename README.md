@@ -1,8 +1,10 @@
 # kora_customs
 
 Public, self-service cosmetic vehicle customisation for the qbcore2 stack.
-It is intentionally separate from `kora_mechanic`: no repairs, work orders,
-employee job, servicing, or performance upgrades are included.
+It is intentionally separate from `kora_mechanic`: no work orders, employee
+job, servicing, or performance upgrades are included. The only repair is the
+optional paid self-service fallback for when no mechanic is on duty
+(`Config.selfRepair`, below).
 
 ## Features
 
@@ -80,12 +82,24 @@ the properties the client reads off the vehicle. Keep its
 `Config.TrustClientCosmetics = false` so paint, tint and every other cosmetic
 field comes from the stored (paid) row instead of an unpaid preview.
 
-**Horn preview.** `Config.hornPreview` (`autoPlay`, `button`, `durationMs`):
-the selected horn sounds for `durationMs` when changed, and the horn row has a
-**Test horn** button. With `holdToTest` the button sustains the horn (up to
-`maxHoldMs`; click again to stop, or hold the `holdKey` key) so long horns can
-be heard in full; `false` keeps the single honk. Set autoPlay/button to `false`
-to turn them off.
+**Horn preview.** `Config.hornPreview`: the selected horn sounds once for
+`durationMs` (default 4000, long enough for the musical horns) when it changes,
+and the horn row has a **Test horn** button that plays it again from the start.
+Each preview is a single `StartVehicleHorn` call after `startDelayMs`, never a
+re-triggered loop (that restarts the sample, which loops its first fraction and
+keeps some horns silent). `holdToTest` (off by default) also sounds the horn
+while `holdKey` is held, up to `maxHoldMs`; the game only sees that key while the
+panel is hidden. Set autoPlay/button to `false` to turn them off.
+
+**Self-service repair.** `Config.selfRepair` (enabled by default) adds a
+**Repair vehicle** target option at every shop for the driver. With
+`onlyWhenNoMechanics` it only shows, and the server only accepts it, while no
+player with one of `mechanicJobs` is on duty (kora_core's on-duty counts). The
+player confirms the `price`, waits through a `durationMs` progress bar, and the
+server then re-checks the shop, driver seat, distance, routing bucket, mechanics
+and the per-character `cooldownSeconds` before charging `account`; the engine,
+body and fuel tank are then fixed. Set `enabled = false` to keep the shop purely
+cosmetic.
 
 **Who can use the shop.** There is no job check: the shop is a public,
 self-service cosmetic shop. Access is decided by the location (a `Config.shops`
