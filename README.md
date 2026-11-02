@@ -55,7 +55,12 @@ closes the panel it stays disabled until the key is released plus
 sent to the kora_lib app shell as `draggable` / `rememberPosition` (with
 `positionKey`). A shell that supports them lets the player drag the panel by its
 header, clamped to the screen, remember the position per player and reset it with
-a double-click on the header; older shells ignore the fields.
+a double-click on the header; older shells ignore the fields. The shell must be a
+kora_lib build that includes the draggable app shell (`draggable`,
+`rememberPosition`, `positionKey` in `Kora.nui.registerApp`). `Config.ui.defaultSide`
+(`'right'` default, `'left'`) picks the side the panel opens on and the camera frames
+the part on the opposite side; `'left'` needs a shell that accepts
+`placement = 'left'`, otherwise the shop keeps the right-hand panel.
 
 **Previews are never saved.** Previews exist only on the vehicle entity; the
 server persists only what checkout validates and charges. Every way out that is
@@ -65,6 +70,15 @@ resource stop) puts the original properties back, including paint, pearlescent,
 custom RGB and window tint, and checks that paint and tint really came back.
 Checkout prices every changed field on the server and refuses a field whose
 price is missing or 0 unless `Config.interaction.allowFreeFields = true`.
+The client price is only compared with the server's; the charge happens before
+anything is saved, and an order that cannot be paid is never persisted. If
+Escape closes the panel while a paid order is still being processed, the paid
+look is applied back to the vehicle.
+
+Parking the vehicle is the other place a look can be saved: kora_garages stores
+the properties the client reads off the vehicle. Keep its
+`Config.TrustClientCosmetics = false` so paint, tint and every other cosmetic
+field comes from the stored (paid) row instead of an unpaid preview.
 
 **Horn preview.** `Config.hornPreview` (`autoPlay`, `button`, `durationMs`):
 the selected horn sounds for `durationMs` when changed, and the horn row has a

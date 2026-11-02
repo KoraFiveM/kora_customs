@@ -28,6 +28,13 @@ Config.ui = {
     height = 900,
     placement = 'right',
 
+    -- Which side the panel opens on when `placement` is not 'center':
+    -- 'right' (default) or 'left'. 'left' needs a kora_lib app shell that
+    -- accepts placement = 'left'; on older builds the shop quietly keeps the
+    -- right-hand panel (and its camera framing). The part camera frames the
+    -- part on the opposite side of the screen either way.
+    defaultSide = 'right',
+
     -- Let the player drag the panel by its header, clamped to the screen
     -- (double-click the header to reset), and remember where they left it
     -- (browser storage, so it is per player). Sent to the app shell as

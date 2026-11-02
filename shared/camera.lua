@@ -90,11 +90,13 @@ function Customs.panelWidth(ui)
     return math.min(math.max(number(ui.width, minimum), minimum), 1600)
 end
 
--- Fraction of the screen width (0..0.45) by which the framed point should sit
--- left of the screen centre so it lands in the free area beside a right-hand
--- panel. 0 when the panel is centred, `camera.avoidPanel` is false, or the
--- preset opts out with `avoidPanel = false`. `camera.screenShift` is added as a
--- manual tweak (fraction of the screen width, positive moves the view left).
+-- Signed fraction of the screen width (-0.45..0.45) by which the framed point
+-- should sit left (+) of the screen centre so it lands in the free area beside
+-- a right-hand panel, or right (-) of it beside a left-hand panel
+-- (`ui.defaultSide = 'left'`). 0 when the panel is centred, `camera.avoidPanel`
+-- is false, or the preset opts out with `avoidPanel = false`.
+-- `camera.screenShift` is added as a manual tweak (fraction of the screen
+-- width, positive moves the view left, negative moves it right).
 function Customs.panelShift(camera, ui, preset, screenWidth)
     camera = type(camera) == 'table' and camera or {}
     ui = type(ui) == 'table' and ui or {}
@@ -103,19 +105,21 @@ function Customs.panelShift(camera, ui, preset, screenWidth)
     if automatic and ui.placement ~= 'center' then
         local width = math.max(1, number(screenWidth, 1920))
         local covered = Customs.panelWidth(ui) + number(camera.panelMargin, 16)
-        shift = shift + math.min(covered, width) / width / 2
+        local amount = math.min(covered, width) / width / 2
+        shift = shift + (ui.defaultSide == 'left' and -amount or amount)
     end
-    return math.max(0.0, math.min(0.45, shift))
+    return math.max(-0.45, math.min(0.45, shift))
 end
 
 -- World-space point to aim the camera at so that `look` appears `shift`
--- (fraction of the screen width) left of the screen centre. The view direction
--- is turned right about the vertical axis; pitch is unchanged. `fov` is the
--- vertical field of view in degrees and `aspect` is width / height.
+-- (fraction of the screen width) left of the screen centre, or right of it when
+-- `shift` is negative. The view direction is turned right (left) about the
+-- vertical axis; pitch is unchanged. `fov` is the vertical field of view in
+-- degrees and `aspect` is width / height.
 function Customs.cameraAim(eye, look, shift, fov, aspect)
     local dx, dy, dz = look[1] - eye[1], look[2] - eye[2], look[3] - eye[3]
     shift = number(shift, 0.0)
-    if shift <= 0 or math.sqrt(dx * dx + dy * dy) < 1e-4 then return { look[1], look[2], look[3] } end
+    if shift == 0 or math.sqrt(dx * dx + dy * dy) < 1e-4 then return { look[1], look[2], look[3] } end
     local halfWidth = math.tan(math.rad(number(fov, 45.0)) / 2) * number(aspect, 16 / 9)
     local angle = math.atan(2 * shift * halfWidth)
     local sin, cos = math.sin(angle), math.cos(angle)

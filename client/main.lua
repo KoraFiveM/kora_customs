@@ -871,6 +871,10 @@ local function checkout()
             active = nil
             FreezeEntityPosition(session.vehicle, session.wasFrozen)
             closeShell()
+        elseif DoesEntityExist(session.vehicle) then
+            -- Escape closed the shell while the order was in flight, so the
+            -- previews were rolled back; the order is paid and saved, so show it.
+            pcall(Kora.vehicle.setProperties, session.vehicle, session.pending, { timeout = 2000 })
         end
         notify(('Customisation saved for %s (%s).'):format(result.plate, dollars(result.price)), 'success')
     end)
@@ -916,7 +920,12 @@ end
 
 -- registerApp needs at least one view, so it starts with a placeholder that
 -- open() replaces with the session's real navigation.
-Kora.nui.registerApp({
+local function panelPlacement()
+    if Config.ui and Config.ui.placement == 'center' then return 'center' end
+    return Config.ui and Config.ui.defaultSide == 'left' and 'left' or 'right'
+end
+
+local appDefinition = {
     id = APP_ID,
     title = 'Custom Shop',
     description = 'Cosmetic vehicle customisation. No repairs or performance tuning.',
@@ -925,7 +934,7 @@ Kora.nui.registerApp({
     defaultView = 'paint',
     width = Customs.panelWidth(Config.ui),
     height = tonumber(Config.ui and Config.ui.height) or 900,
-    placement = Config.ui and Config.ui.placement == 'center' and 'center' or 'right',
+    placement = panelPlacement(),
     -- Read by app shells that support a movable panel; ignored by older ones.
     draggable = not Config.ui or Config.ui.draggable ~= false,
     rememberPosition = not Config.ui or Config.ui.rememberPosition ~= false,
@@ -933,7 +942,17 @@ Kora.nui.registerApp({
     footer = 'Press Escape to cancel and revert your previews',
     navigation = { { id = 'paint', label = 'Paint', icon = 'Palette', content = { blocks = { { type = 'empty', title = 'No vehicle selected' } } } } },
     onAction = onAction,
-})
+}
+
+local registered, registerErr = pcall(Kora.nui.registerApp, appDefinition)
+if not registered and appDefinition.placement == 'left' then
+    -- This kora_lib build has no left-hand panel: keep the right-hand one, and
+    -- tell the camera so it frames the part on the free side.
+    Config.ui.defaultSide = 'right'
+    appDefinition.placement = 'right'
+    registered, registerErr = pcall(Kora.nui.registerApp, appDefinition)
+end
+if not registered then error(registerErr, 0) end
 
 local function open(shopId)
     if active then return notify('A customisation session is already open.', 'warning') end

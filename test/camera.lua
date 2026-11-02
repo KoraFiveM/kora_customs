@@ -107,6 +107,16 @@ local ndc = (part[1] * right[1] + part[2] * right[2]) / (part[1] * forward[1] + 
 assert(math.abs(ndc + 2 * 0.19) < 1e-9, 'the part lands the requested fraction left of the centre')
 equal(Customs.cameraAim({ 0, 0, 0 }, { 0, 0, 3 }, 0.2, 60.0, 1.7)[3], 3, 'a straight-up look is left alone')
 
+-- A left-hand panel frames the part on the other side of the screen.
+equal(ui.defaultSide, 'right', 'the panel opens on the right by default')
+local leftUi = { placement = 'right', defaultSide = 'left', width = ui.width, layout = ui.layout }
+local leftShift = Customs.panelShift(camera, leftUi, camera.presets.interior, 1920)
+assert(math.abs(leftShift + shift) < 1e-9, 'a left panel mirrors the shift')
+equal(Customs.panelShift(camera, { placement = 'center', defaultSide = 'left' }, {}, 1920), 0.0, 'a centred panel ignores the side')
+local mirrored = Customs.cameraAim(eyePoint, part, -0.19, 65.0, 16 / 9)
+assert(mirrored[1] < 0 and mirrored[2] > 0, 'a negative shift turns the camera to the left of the part')
+assert(math.abs(mirrored[1] + aim[1]) < 1e-9 and math.abs(mirrored[2] - aim[2]) < 1e-9, 'the left turn mirrors the right turn')
+
 -- The cabin view looks at the middle of the dashboard from between the seats.
 local interior = camera.presets.interior
 equal(interior.cabin, true, 'interior is a cabin preset')

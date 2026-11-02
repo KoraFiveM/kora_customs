@@ -160,6 +160,16 @@ ok, result = purchase(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, c
 assert(ok == true and balance == before - 1300, 'tint, pearlescent and custom RGB are all charged')
 assert(calls.save.properties.windowTint == 3 and calls.save.properties.color1 == 1, 'only the purchased fields change')
 
+-- nothing is persisted unless the charge went through
+saveSucceeds = true
+calls = {}
+local funds = balance
+balance = 0
+ok, result = purchase(1, 'bennys', 99, { windowTint = 4, color1 = 7 }, 700)
+assert(ok == false and result == 'insufficient funds', 'an order that cannot be paid is refused')
+assert(calls.save == nil and calls.refund == nil, 'an unpaid order is never saved')
+balance = funds
+
 -- an unchanged order is not a purchase
 ok, result = quote(1, 'bennys', 99, { color1 = 1 })
 assert(ok == false and result == 'no changes selected', 'identical paint is not an order')
