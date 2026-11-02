@@ -86,11 +86,66 @@ local function currentNumber(field, fallback)
     return value
 end
 
+local function hornOption(name, default)
+    local value = tonumber(Config.hornPreview and Config.hornPreview[name])
+    return value and math.floor(value) or default
+end
+
+local hornHold = 0 -- token of the running hold; 0 when no horn is held
+
+-- Ends a held horn. Safe to call at any time.
+local function stopHorn()
+    if hornHold == 0 then return end
+    hornHold = 0
+    local vehicle = active and active.vehicle
+    -- a 1 ms horn replaces the sustained one and so cuts it off
+    if vehicle and DoesEntityExist(vehicle) then StartVehicleHorn(vehicle, 1, GetHashKey('HELDDOWN'), false) end
+end
+
+-- Keeps the selected horn sounding until stopHorn(), maxHoldMs, the menu
+-- closing, or the player leaving the vehicle.
+local function startHorn()
+    local vehicle = active and active.vehicle
+    if not vehicle or not DoesEntityExist(vehicle) then return end
+    stopHorn()
+    local token = GetGameTimer()
+    if token == 0 then token = 1 end
+    hornHold = token
+    local limit = math.max(500, hornOption('maxHoldMs', 15000))
+    local started = GetGameTimer()
+    CreateThread(function()
+        while hornHold == token do
+            local now = GetGameTimer()
+            if not active or active.vehicle ~= vehicle or not DoesEntityExist(vehicle)
+                or not Kora.nui.isAppOpen(APP_ID)
+                or GetVehiclePedIsIn(PlayerPedId(), false) ~= vehicle
+                or now - started >= limit then
+                break
+            end
+            -- re-trigger slightly ahead of expiry so the sound is continuous
+            StartVehicleHorn(vehicle, 400, GetHashKey('HELDDOWN'), false)
+            Wait(300)
+        end
+        if hornHold == token then stopHorn() end
+    end)
+end
+
+-- One short preview (autoPlay, and the Test horn button when holdToTest is off).
 local function playHorn()
     local vehicle = active and active.vehicle
     if not vehicle or not DoesEntityExist(vehicle) then return end
-    local duration = math.max(100, math.floor(tonumber(Config.hornPreview and Config.hornPreview.durationMs) or 1200))
-    StartVehicleHorn(vehicle, duration, GetHashKey('HELDDOWN'), false)
+    StartVehicleHorn(vehicle, math.max(100, hornOption('durationMs', 2500)), GetHashKey('HELDDOWN'), false)
+end
+
+-- The Test horn button. The menu only reports clicks today, so with holdToTest
+-- a click toggles the sustained horn; hornstart/hornstop (below) are the
+-- press/release pair for a menu that reports them.
+local function testHorn()
+    if Config.hornPreview and Config.hornPreview.holdToTest then
+        if hornHold ~= 0 then return stopHorn() end
+        return startHorn()
+    end
+    playHorn()
 end
 
 -- Paint and glass are put back with direct natives as well as through
@@ -174,6 +229,7 @@ end
 -- leaving the seat or the zone, dying, a failed checkout, resource stop.
 local function restore()
     if not active then return end
+    stopHorn()
     local session = active
     active = nil
     local vehicle = session.vehicle
@@ -720,6 +776,7 @@ local function pickColor(field, context)
 end
 
 local function closeShell()
+    stopHorn()
     if Kora.nui.isAppOpen(APP_ID) then Kora.nui.closeApp(APP_ID) end
 end
 
@@ -772,7 +829,7 @@ local function checkout()
     end)
 end
 
-local scalarActions = { step = stepField, set = setField, toggle = toggleField, extra = toggleExtra, color = pickColor, horn = playHorn }
+local scalarActions = { step = stepField, set = setField, toggle = toggleField, extra = toggleExtra, color = pickColor, horn = testHorn, hornstart = startHorn, hornstop = stopHorn }
 
 local function onAction(actionId, context)
     local session = active
@@ -972,11 +1029,22 @@ AddEventHandler('onClientResourceStart', function(resource)
 end)
 AddEventHandler('onClientResourceStop', function(resource)
     if resource == owner then
+        pcall(stopHorn)
         pcall(restore)
         stopCamera()
         stopPartCamera()
     end
 end)
+
+-- Key-hold fallback for the same preview while the menu is open.
+-- Config.hornPreview.holdKey = false disables it.
+RegisterCommand('+kora_customs_horn', function()
+    if active and Config.hornPreview and Config.hornPreview.holdToTest then startHorn() end
+end, false)
+RegisterCommand('-kora_customs_horn', function() stopHorn() end, false)
+if Config.hornPreview and Config.hornPreview.holdKey then
+    RegisterKeyMapping('+kora_customs_horn', 'Customs: hold to test horn', 'keyboard', Config.hornPreview.holdKey)
+end
 
 exports('open', open)
 RegisterCommand('getVehprop', function()

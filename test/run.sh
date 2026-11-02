@@ -3,4 +3,5 @@ set -eu
 cd "$(dirname "$0")/.."
 lua test/catalog.lua
 lua test/camera.lua
+lua test/hornconfig.lua
 lua test/server.lua

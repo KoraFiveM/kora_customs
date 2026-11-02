@@ -60,8 +60,11 @@ Checkout prices every changed field on the server and refuses a field whose
 price is missing or 0 unless `Config.interaction.allowFreeFields = true`.
 
 **Horn preview.** `Config.hornPreview` (`autoPlay`, `button`, `durationMs`):
-the selected horn sounds briefly when changed, and the horn row has a
-**Test horn** button. Set either to `false` to turn it off.
+the selected horn sounds for `durationMs` when changed, and the horn row has a
+**Test horn** button. With `holdToTest` the button sustains the horn (up to
+`maxHoldMs`; click again to stop, or hold the `holdKey` key) so long horns can
+be heard in full; `false` keeps the single honk. Set autoPlay/button to `false`
+to turn them off.
 
 **Who can use the shop.** There is no job check: the shop is a public,
 self-service cosmetic shop. Access is decided by the location (a `Config.shops`

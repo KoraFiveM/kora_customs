@@ -141,13 +141,25 @@ Config.camera = {
 }
 
 -- Horn preview: the horn option is hard to judge by name alone.
---   autoPlay    sound the selected horn briefly whenever it changes
+--   autoPlay    sound the selected horn whenever it changes (Previous/Next/Choose)
 --   button      add a "Test horn" button to the horn row
---   durationMs  how long the horn sounds
+--   durationMs  how long a single (non-held) preview sounds
+--   holdToTest  Test horn sustains the horn instead of one short honk, so long
+--               or musical horns can be heard in full. false = old click behaviour.
+--               Press/release needs menu support; until the menu reports them a
+--               click toggles it on/off (see holdKey for a true hold).
+--   maxHoldMs   safety cap on a sustained horn; it always stops when the menu
+--               closes, the player leaves the vehicle or the resource stops
+--   holdKey     default key (a RegisterKeyMapping key name) that sounds the horn
+--               while held, with the menu open and holdToTest on; false = none.
+--               Players can rebind it in their key settings.
 Config.hornPreview = {
     autoPlay = true,
     button = true,
-    durationMs = 1200,
+    durationMs = 2500,
+    holdToTest = true,
+    maxHoldMs = 15000,
+    holdKey = 'H',
 }
 
 Config.blip = {
