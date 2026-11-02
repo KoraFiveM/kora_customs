@@ -40,8 +40,17 @@ local function dollars(value)
     return ('$%d'):format(math.floor(tonumber(value) or 0))
 end
 
+-- Natives only: this runs every frame in the freecam/hidden loops and every
+-- 250 ms in the session guard, so it must not be an export round trip
+-- (Kora.vehicle.isDriver is the same check behind one).
 local function vehicleIsUsable(vehicle)
-    return vehicle and vehicle ~= 0 and DoesEntityExist(vehicle) and Kora.vehicle.isDriver(vehicle)
+    return type(vehicle) == 'number' and vehicle > 0 and DoesEntityExist(vehicle)
+        and IsEntityAVehicle(vehicle) and GetPedInVehicleSeat(vehicle, -1) == PlayerPedId()
+end
+
+local function withinDistance(a, b, limit)
+    local dx, dy, dz = a.x - b.x, a.y - b.y, a.z - b.z
+    return dx * dx + dy * dy + dz * dz <= limit * limit
 end
 
 local function localizedModName(vehicle, slot, index)
@@ -964,7 +973,7 @@ local function open(shopId)
                     reason = 'You must remain in the driver seat.'
                 elseif IsEntityDead(PlayerPedId()) then
                     reason = 'Customisation cancelled; previews were reverted.'
-                elseif not Kora.distance.coords(GetEntityCoords(session.vehicle), shop.coords, limit) then
+                elseif not withinDistance(GetEntityCoords(session.vehicle), shop.coords, limit) then
                     reason = 'You left the custom shop; previews were reverted.'
                 end
                 if reason then
