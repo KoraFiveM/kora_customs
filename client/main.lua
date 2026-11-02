@@ -527,11 +527,11 @@ local function refresh()
 end
 
 -- Flying is Kora.freecam. The shell holds NUI focus, so the button closes it, then
--- waits for Enter (keep the view) or Backspace (back to the previous view) and
--- reopens it. The camera handle stays live while the shell is open and is
--- stopped when the whole session ends.
+-- waits for Enter (keep the view) or Escape / Backspace (back to the previous
+-- view) and reopens it. The camera handle stays live while the shell is open
+-- and is stopped when the whole session ends.
 local viewHandle
-local helpText = 'WASD move  |  Q/E down/up  |  Shift fast  |  Mouse look  |  Enter save view  |  Backspace cancel'
+local helpText = 'WASD move  |  Q/E down/up  |  Shift fast  |  Mouse look  |  Enter save view  |  Esc / Backspace cancel'
 -- vehicle inputs that would fire while flying (E is the horn in a vehicle)
 local blockedControls = { 23, 71, 72, 75, 76, 86 }
 
@@ -693,8 +693,42 @@ local function pressed(control)
     return IsControlJustPressed(0, control) or IsDisabledControlJustPressed(0, control)
 end
 
--- Blocks until Enter or Backspace. Backspace goes back to the view the camera had
--- when this run began, or to the normal camera if it had none.
+-- GTA's pause menu sits on Escape (200) and P (199). Escape is also a cancel
+-- key here (177 is Backspace / Escape / right mouse), so without this one press
+-- both cancels and opens the pause map under the reopened shop.
+local function pauseBlocked()
+    return not Config.ui or Config.ui.blockPauseMenu ~= false
+end
+
+local function blockPause()
+    DisableControlAction(0, 199, true)
+    DisableControlAction(0, 200, true)
+end
+
+-- The key that ended a view, or that closed the shell (the shell closes on
+-- key-down and hands focus back), is still held when the game sees it again.
+-- Keep the pause controls off until it is released plus Config.ui.pauseGuardMs,
+-- and shut the pause menu if it got in anyway. Bounded: at most ~2 s.
+local function swallowPause()
+    if not pauseBlocked() then return end
+    local margin = math.max(0, tonumber(Config.ui and Config.ui.pauseGuardMs) or 250)
+    local started, releasedAt = GetGameTimer(), nil
+    while true do
+        blockPause()
+        if IsPauseMenuActive() then SetFrontendActive(false) end
+        local now = GetGameTimer()
+        if IsDisabledControlPressed(0, 200) or IsDisabledControlPressed(0, 199) then
+            releasedAt = nil
+        elseif not releasedAt then
+            releasedAt = now
+        end
+        if (releasedAt and now - releasedAt >= margin) or now - started >= margin + 2000 then return end
+        Wait(0)
+    end
+end
+
+-- Blocks until Enter, Backspace or Escape. Backspace / Escape go back to the view
+-- the camera had when this run began, or to the normal camera if it had none.
 local function runFreecam(session)
     local existing = viewHandle and viewHandle.isActive()
     local before = existing and poseOf(viewHandle) or nil
@@ -704,19 +738,22 @@ local function runFreecam(session)
 
     Wait(150) -- let the shell release NUI focus first
 
+    local blockingPause = pauseBlocked()
     while handle.isActive() and vehicleIsUsable(session.vehicle) do
         Wait(0)
         for _, control in ipairs(blockedControls) do DisableControlAction(0, control, true) end
+        if blockingPause then blockPause() end
 
         BeginTextCommandDisplayHelp('STRING')
         AddTextComponentSubstringPlayerName(helpText)
         EndTextCommandDisplayHelp(0, false, false, -1)
 
-        if pressed(191) then return end -- Enter
-        if pressed(177) then            -- Backspace
+        if pressed(191) then return end         -- Enter
+        if pressed(177) or pressed(200) then    -- Backspace / Escape
             stopCamera()
             if before then startView(before) end
-            return
+            -- wait for the key to come up before the shell takes focus again
+            return swallowPause()
         end
     end
 end
@@ -725,16 +762,17 @@ end
 -- stays, and Enter / Backspace / Escape brings the menu back. Previews are kept.
 local function runHidden(session)
     Wait(150) -- let the shell release NUI focus first
+    local blockingPause = pauseBlocked()
     while active == session and vehicleIsUsable(session.vehicle) do
         Wait(0)
-        DisableControlAction(0, 199, true)
-        DisableControlAction(0, 200, true)
+        if blockingPause then blockPause() end
 
         BeginTextCommandDisplayHelp('STRING')
         AddTextComponentSubstringPlayerName('Enter / Backspace / Escape  show the menu again')
         EndTextCommandDisplayHelp(0, false, false, -1)
 
-        if pressed(191) or pressed(177) or pressed(200) then return end
+        if pressed(191) then return end
+        if pressed(177) or pressed(200) then return swallowPause() end
     end
 end
 
@@ -947,7 +985,9 @@ local function open(shopId)
         -- openApp returns however the shell closed (Escape, X, discard, a
         -- completed purchase). Anything not purchased rolls the previews back,
         -- and the camera always goes back to normal, even if the code above
-        -- raised an error.
+        -- raised an error. An Escape that closed the shell must not also open
+        -- the pause menu once the game has input again.
+        swallowPause()
         if active == session then pcall(restore) end
         stopCamera()
         stopPartCamera()

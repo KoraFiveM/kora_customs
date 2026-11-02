@@ -44,6 +44,13 @@ white fill light lights the cabin, and a leftover screen blur / timecycle is
 cleared. The **Hide menu** button (`Config.ui.previewButton`) closes the panel
 so the whole screen shows the vehicle; Enter, Backspace or Escape brings it back.
 
+**Escape and the pause menu.** In **Freecam** Escape cancels exactly like
+Backspace (back to the previous view, then the panel reopens). With
+`Config.ui.blockPauseMenu = true` (default) GTA's pause menu (Escape / P) is
+disabled while Freecam or Hide menu is up, and after Escape ends a view or
+closes the panel it stays disabled until the key is released plus
+`Config.ui.pauseGuardMs` (default 250 ms), so the map never opens behind the shop.
+
 **Movable panel.** `Config.ui.draggable` and `Config.ui.rememberPosition` are
 sent to the kora_lib app shell as `draggable` / `rememberPosition` (with
 `positionKey`). A shell that supports them lets the player drag the panel by its

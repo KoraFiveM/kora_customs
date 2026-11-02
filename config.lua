@@ -40,6 +40,13 @@ Config.ui = {
     -- Add a "Hide menu" button that closes the panel so the whole screen shows
     -- the vehicle; Enter / Backspace / Escape brings it back, previews intact.
     previewButton = true,
+
+    -- Stop GTA's pause menu (Escape / P) opening over the shop. While Freecam
+    -- or Hide menu is up the pause keys are disabled and Escape cancels like
+    -- Backspace; after Escape ends a view or closes the panel they stay
+    -- disabled until the key is released plus `pauseGuardMs` milliseconds.
+    blockPauseMenu = true,
+    pauseGuardMs = 250,
 }
 
 -- Part camera: while the shop is open, selecting an option moves a scripted
