@@ -156,8 +156,7 @@ Config.camera = {
 
 -- Horn preview: the horn option is hard to judge by name alone.
 --   autoPlay      sound the selected horn whenever it changes (Previous/Next/Choose)
---   button        add a "Test horn" button to the horn row; each press plays the
---                 horn once from the start (pressing again restarts it)
+--   button        add a test button to the horn row (see holdToTest)
 --   method        how the preview is sounded. The game only gives a horn a short
 --                 tap while a player sits in the driver seat (StartVehicleHorn
 --                 ignores its duration then), and the shop keeps the player there:
@@ -176,13 +175,17 @@ Config.camera = {
 --   startDelayMs  pause before sounding, so a previous preview is cut cleanly
 --                 and a horn fitted the same moment is the one heard
 --   mode          StartVehicleHorn mode: 'HELDDOWN' (held horn) or 'NORMAL'
---   holdToTest    also sound the horn while holdKey is held, up to maxHoldMs.
---                 The game only sees keys while the panel is hidden (Hide menu),
---                 so this is an extra, off by default
---   maxHoldMs     cap on a held horn; it always stops when the key is released,
---                 the menu closes, the player leaves the vehicle or the resource stops
---   holdKey       RegisterKeyMapping key for holdToTest (players can rebind it);
---                 false = no key mapping
+--   holdToTest    true: the button is "Hold to test horn": the horn sounds
+--                 continuously from press to release (mouse, Enter or Space), up
+--                 to maxHoldMs, with no repeats. Needs a kora_lib app shell with
+--                 hold actions; older ones play it once per click instead.
+--                 false: "Test horn" plays the horn once per click for its
+--                 durationMs / durations length
+--   maxHoldMs     cap on a held horn; it always stops on release, when the menu
+--                 closes, the player leaves the vehicle or the resource stops
+--   holdKey       optional RegisterKeyMapping key that also holds the horn
+--                 (players can rebind it); the game only sees it while the panel
+--                 is hidden (Hide menu). false = no key mapping
 Config.hornPreview = {
     autoPlay = true,
     button = true,
@@ -196,7 +199,7 @@ Config.hornPreview = {
     byIndex = {},
     startDelayMs = 150,
     mode = 'HELDDOWN',
-    holdToTest = false,
+    holdToTest = true,
     maxHoldMs = 15000,
     holdKey = false,
 }
@@ -257,8 +260,23 @@ Config.shops = {
 }
 
 -- A field is charged once per checkout, regardless of how many variants were
--- previewed. Extras are charged individually.
+-- previewed. Extras are charged individually. The server prices every order
+-- from this table; checkout refuses a changed field whose price is 0 or missing
+-- (see Config.interaction.allowFreeFields).
+--   primaryPaint / secondaryPaint  a palette colour on the primary / secondary paint
+--   customPrimary / customSecondary  a custom RGB primary / secondary paint
+--   pearlescent, wheelPaint        pearlescent and wheel colour
+--   windowTint                     window tint (Plate & glass tab)
+--   paint / customPaint            fallbacks for any paint key above left out
+--                                  (older configs only had these two)
 Config.prices = {
+    primaryPaint = 350,
+    secondaryPaint = 300,
+    customPrimary = 600,
+    customSecondary = 500,
+    pearlescent = 300,
+    wheelPaint = 250,
+    windowTint = 350,
     paint = 350,
     customPaint = 600,
     body = 500,

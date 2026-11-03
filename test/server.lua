@@ -154,12 +154,13 @@ calls = {}
 row.mods = { color1 = 1, windowTint = 0, extras = { ['1'] = false } }
 before = balance
 ok, result = quote(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, color2 = { r = 1, g = 2, b = 3 } })
-assert(ok == true and result.price == 350 + 350 + 600, 'quote covers tint, pearlescent and custom RGB')
+local paintOrder = Config.prices.windowTint + Config.prices.pearlescent + Config.prices.customSecondary
+assert(ok == true and result.price == paintOrder, 'quote covers tint, pearlescent and custom RGB at their own prices')
 ok, result = purchase(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, color2 = { r = 1, g = 2, b = 3 } }, 1)
 assert(ok == false and result:find('price changed', 1, true) and balance == before, 'a forged price is refused uncharged')
-ok, result = purchase(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, color2 = { r = 1, g = 2, b = 3 } }, 1300,
+ok, result = purchase(1, 'bennys', 99, { windowTint = 3, pearlescentColor = 9, color2 = { r = 1, g = 2, b = 3 } }, paintOrder,
     { windowTint = 0, color1 = 255 })
-assert(ok == true and balance == before - 1300, 'tint, pearlescent and custom RGB are all charged')
+assert(ok == true and balance == before - paintOrder, 'tint, pearlescent and custom RGB are all charged')
 assert(calls.save.properties.windowTint == 3 and calls.save.properties.color1 == 1, 'only the purchased fields change')
 
 -- nothing is persisted unless the charge went through
@@ -167,7 +168,7 @@ saveSucceeds = true
 calls = {}
 local funds = balance
 balance = 0
-ok, result = purchase(1, 'bennys', 99, { windowTint = 4, color1 = 7 }, 700)
+ok, result = purchase(1, 'bennys', 99, { windowTint = 4, color1 = 7 }, Config.prices.windowTint + Config.prices.primaryPaint)
 assert(ok == false and result == 'insufficient funds', 'an order that cannot be paid is refused')
 assert(calls.save == nil and calls.refund == nil, 'an unpaid order is never saved')
 balance = funds
@@ -176,9 +177,25 @@ balance = funds
 ok, result = quote(1, 'bennys', 99, { color1 = 1 })
 assert(ok == false and result == 'no changes selected', 'identical paint is not an order')
 
+-- every paint category is priced and charged by the server
+for field, key in pairs({ color1 = 'primaryPaint', color2 = 'secondaryPaint', pearlescentColor = 'pearlescent',
+    wheelColor = 'wheelPaint', windowTint = 'windowTint' }) do
+    assert(Config.prices[key] > 0, key .. ' has a default price')
+    calls = {}
+    row.mods = { color1 = 1, color2 = 1, pearlescentColor = 1, wheelColor = 1, windowTint = 0 }
+    before = balance
+    ok, result = purchase(1, 'bennys', 99, { [field] = 5 }, Config.prices[key])
+    assert(ok == true and calls.charge.amount == Config.prices[key] and balance == before - Config.prices[key], field .. ' is charged ' .. key)
+end
+for field, key in pairs({ color1 = 'customPrimary', color2 = 'customSecondary' }) do
+    calls = {}
+    ok, result = quote(1, 'bennys', 99, { [field] = { r = 9, g = 9, b = 9 } })
+    assert(ok == true and result.price == Config.prices[key], field .. ' custom RGB is priced as ' .. key)
+end
+
 -- a field priced at zero cannot ride along in a paid order
-local paintPrice = Config.prices.paint
-Config.prices.paint = 0
+local tintPrice = Config.prices.windowTint
+Config.prices.windowTint = 0
 calls.charge = nil
 ok, result = purchase(1, 'bennys', 99, { windowTint = 5, modSpoilers = 1 }, 500)
 assert(ok == false and result == 'custom shop pricing is invalid' and calls.charge == nil, 'free field is refused')
@@ -186,6 +203,6 @@ Config.interaction.allowFreeFields = true
 ok, result = purchase(1, 'bennys', 99, { windowTint = 5, modSpoilers = 1 }, 500)
 assert(ok == true and calls.charge.amount == 500, 'allowFreeFields restores the old behaviour')
 Config.interaction.allowFreeFields = false
-Config.prices.paint = paintPrice
+Config.prices.windowTint = tintPrice
 
 print('qbcustoms server: ok')

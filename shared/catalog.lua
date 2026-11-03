@@ -40,15 +40,18 @@ Customs.modFields = {
     { field = 'modLivery', slot = 48, label = 'Livery', price = 'body' },
 }
 
+-- `price` names the Config.prices key; paint and glass fields have their own key
+-- and fall back to `fallback` (paint / customPaint) when a config predates it.
+-- `custom` is the key for a custom RGB value of that field.
 local rules = {
-    color1 = { kind = 'color', price = 'paint' },
-    color2 = { kind = 'color', price = 'paint' },
-    pearlescentColor = { kind = 'integer', min = 0, max = 255, price = 'paint' },
-    wheelColor = { kind = 'integer', min = 0, max = 255, price = 'paint' },
+    color1 = { kind = 'color', price = 'primaryPaint', fallback = 'paint', custom = 'customPrimary' },
+    color2 = { kind = 'color', price = 'secondaryPaint', fallback = 'paint', custom = 'customSecondary' },
+    pearlescentColor = { kind = 'integer', min = 0, max = 255, price = 'pearlescent', fallback = 'paint' },
+    wheelColor = { kind = 'integer', min = 0, max = 255, price = 'wheelPaint', fallback = 'paint' },
     dashboardColor = { kind = 'integer', min = 0, max = 255, price = 'interior' },
     interiorColor = { kind = 'integer', min = 0, max = 255, price = 'interior' },
     wheels = { kind = 'integer', min = 0, max = 13, price = 'wheels' },
-    windowTint = { kind = 'integer', min = -1, max = 6, price = 'paint' },
+    windowTint = { kind = 'integer', min = -1, max = 6, price = 'windowTint', fallback = 'paint' },
     plateIndex = { kind = 'integer', min = 0, max = 5, price = 'plate' },
     neonEnabled = { kind = 'booleanArray', count = 4, price = 'lighting' },
     neonColor = { kind = 'rgb', price = 'lighting' },
@@ -168,19 +171,37 @@ function Customs.changedPatch(patch, existing)
     return changed
 end
 
+local function configuredPrice(key, fallback)
+    local prices = type(Config.prices) == 'table' and Config.prices or {}
+    local amount = tonumber(prices[key])
+    if amount == nil and fallback then amount = tonumber(prices[fallback]) end
+    return math.max(0, math.floor(amount or 0))
+end
+
+-- Price of one changed field (per extra for `extras`). Pass the value to price
+-- a custom RGB paint; the shop rows and the server checkout both use this.
+---@param field string
+---@param value any
+---@return integer
+function Customs.unitPrice(field, value)
+    local rule = rules[field]
+    if not rule then return 0 end
+    if rule.custom and type(value) == 'table' then
+        return configuredPrice(rule.custom, 'customPaint')
+    end
+    return configuredPrice(rule.price, rule.fallback)
+end
+
 ---@param patch table
 ---@return integer
 function Customs.price(patch)
     local total = 0
     for field, value in pairs(patch) do
-        local rule = rules[field]
-        local amount = math.max(0, math.floor(tonumber(Config.prices[rule.price]) or 0))
+        local amount = Customs.unitPrice(field, value)
         if field == 'extras' then
             local count = 0
             for _ in pairs(value) do count = count + 1 end
             total = total + amount * count
-        elseif (field == 'color1' or field == 'color2') and type(value) == 'table' then
-            total = total + math.max(0, math.floor(tonumber(Config.prices.customPaint) or amount))
         else
             total = total + amount
         end

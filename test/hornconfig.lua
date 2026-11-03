@@ -4,7 +4,7 @@ dofile("config.lua")
 dofile("shared/horn.lua")
 local h = Config.hornPreview
 assert(type(h.holdToTest) == "boolean", "holdToTest is a documented boolean")
-assert(h.holdToTest == false and h.holdKey == false, "one-shot preview is the default; no key is bound unless asked")
+assert(h.holdToTest == true and h.holdKey == false, "the test button is hold-to-play by default; no key is bound unless asked")
 assert(h.maxHoldMs >= 500, "maxHoldMs is a sane cap")
 assert(h.method == "proxy", "the preview sounds from a stand-in with nobody in the driver seat by default")
 assert(h.durationMs >= 500 and h.durationMs <= 3000, "a plain horn sounds like a short press")
@@ -41,4 +41,15 @@ end
 assert(calls == 1, "one StartVehicleHorn per preview")
 assert(not source:find("SetHornPermanentlyOn%w*%("), "no horn native that the driver seat cuts short")
 assert(not source:find("hornHold", 1, true), "no re-triggering hold loop")
+
+-- Hold to test: the button is a kora_lib hold action; press starts one
+-- continuous horn (maxHoldMs), release stops it. Nothing re-triggers it.
+assert(source:find("hold = hold or nil", 1, true), "the horn button is declared as a hold action when holdToTest is on")
+assert(source:find("context.hold == 'start' or context.hold == 'end'", 1, true), "onAction handles hold press and release")
+local holdBody = assert(source:match("local function holdHorn%(held%)(.-)\nend"), "holdHorn exists")
+assert(holdBody:find("stopHorn()", 1, true), "release stops the horn")
+local plays = 0
+for _ in holdBody:gmatch("playHorn%(") do plays = plays + 1 end
+assert(plays == 1 and holdBody:find("maxHoldMs", 1, true), "press starts the horn once, capped at maxHoldMs")
+assert(not holdBody:find("while", 1, true) and not holdBody:find("SetTimeout", 1, true), "a held horn is not re-triggered")
 print("kora_customs horn config: ok")

@@ -70,6 +70,11 @@ not a completed purchase (Escape, X, Discard changes, a failed or refused
 checkout, leaving the seat or the shop, dying, the vehicle disappearing,
 resource stop) puts the original properties back, including paint, pearlescent,
 custom RGB and window tint, and checks that paint and tint really came back.
+Paint has a price per category in `Config.prices`: `primaryPaint`,
+`secondaryPaint`, `customPrimary`, `customSecondary` (custom RGB),
+`pearlescent`, `wheelPaint` and `windowTint`. A key left out falls back to
+`paint` (or `customPaint` for custom RGB), the two keys older configs had. The
+shop rows show these prices and the checkout charges them.
 Checkout prices every changed field on the server and refuses a field whose
 price is missing or 0 unless `Config.interaction.allowFreeFields = true`.
 The client price is only compared with the server's; the charge happens before
@@ -83,8 +88,12 @@ the properties the client reads off the vehicle. Keep its
 field comes from the stored (paid) row instead of an unpaid preview.
 
 **Horn preview.** `Config.hornPreview`: the selected horn sounds once when it
-changes, and the horn row has a **Test horn** button that plays it again from the
-start; a new press cuts the running preview first, so previews never overlap.
+changes, and the horn row has a **Hold to test horn** button: the horn sounds
+continuously while the button is held (mouse, Enter or Space) and stops on
+release, capped at `maxHoldMs`. It needs a kora_lib app shell with `hold`
+actions; older shells show a plain button that plays the horn once. With
+`holdToTest = false` the button is **Test horn**, which plays the horn once per
+click. A new preview cuts the running one first, so previews never overlap.
 GTA only taps a horn while a player sits in the driver seat (`StartVehicleHorn`
 ignores its duration then), and the shop keeps the player there, so the preview
 does not sound the player's own vehicle. With `method = 'proxy'` (default) it
@@ -94,9 +103,9 @@ key for the preview instead. The length comes from `byIndex[horn index]`, then
 the first `durations` rule whose `match` text is in the horn's name (musical
 horns 5 s, loop horns one 6 s pass), then `durationMs` (1.5 s, plain horns).
 The rules match the English names; translate them for other game languages.
-`holdToTest` (off by default) also sounds the horn while `holdKey` is held, up
-to `maxHoldMs`; the game only sees that key while the panel is hidden. Set
-autoPlay/button to `false` to turn them off.
+`holdKey` (off by default) maps a key that holds the horn the same way; the game
+only sees that key while the panel is hidden. Set autoPlay/button to `false` to
+turn them off.
 
 **Self-service repair.** `Config.selfRepair` (enabled by default) adds a
 **Repair vehicle** target option at every shop for the driver. With

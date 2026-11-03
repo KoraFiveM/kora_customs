@@ -81,4 +81,21 @@ Config.prices.paint = nil
 equal(#Customs.unpriced({ windowTint = 2 }), 1, 'a missing price counts as free')
 Config.prices.paint = savedPaint
 
+-- Paint has a price per category; a key left out falls back to paint / customPaint.
+Config.prices.primaryPaint, Config.prices.secondaryPaint = 400, 300
+Config.prices.customPrimary, Config.prices.customSecondary = 700, 550
+Config.prices.pearlescent, Config.prices.wheelPaint, Config.prices.windowTint = 250, 200, 150
+equal(Customs.unitPrice('color1', 3), 400, 'primary palette paint')
+equal(Customs.unitPrice('color2', 3), 300, 'secondary palette paint')
+equal(Customs.unitPrice('color1', { r = 1, g = 2, b = 3 }), 700, 'custom primary RGB')
+equal(Customs.unitPrice('color2', { r = 1, g = 2, b = 3 }), 550, 'custom secondary RGB')
+equal(Customs.price({ pearlescentColor = 1, wheelColor = 2, windowTint = 3 }), 250 + 200 + 150, 'pearlescent, wheel paint and tint')
+equal(Customs.price({ color1 = 1, color2 = { r = 1, g = 1, b = 1 } }), 400 + 550, 'each paint side is charged separately')
+Config.prices.secondaryPaint, Config.prices.customSecondary, Config.prices.windowTint = nil, nil, nil
+equal(Customs.unitPrice('color2', 3), Config.prices.paint, 'a missing paint key falls back to paint')
+equal(Customs.unitPrice('color2', { r = 1, g = 1, b = 1 }), Config.prices.customPaint, 'a missing custom key falls back to customPaint')
+equal(Customs.unitPrice('windowTint', 1), Config.prices.paint, 'tint falls back to paint')
+equal(Customs.unitPrice('extras'), Config.prices.extra, 'extras keep their price')
+equal(Customs.unitPrice('modSpoilers', 1), Config.prices.body, 'mods keep their category price')
+
 print('qbcustoms catalog: ok')

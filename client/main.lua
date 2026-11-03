@@ -197,6 +197,14 @@ local function testHorn()
     playHorn()
 end
 
+-- Hold to test (Config.hornPreview.holdToTest): one continuous horn from press
+-- to release, capped at maxHoldMs. It is started once, never re-triggered, so
+-- it does not stutter; release, closing the menu or leaving stops it.
+local function holdHorn(held)
+    if not held then return stopHorn() end
+    playHorn(math.max(500, hornOption('maxHoldMs', 15000)))
+end
+
 -- Paint and glass are put back with direct natives as well as through
 -- Kora.vehicle.setProperties. A preview left on the entity is exactly what the
 -- garage would later save for free, so this is the part that must not fail
@@ -361,12 +369,18 @@ local function scalarItem(field, price, minimum, current, names, maximum)
         { id = 'set:' .. field, label = compact and 'Pick' or 'Choose', icon = 'List', variant = 'ghost', fields = { chooser } },
     }
     if field == 'modHorns' and Config.hornPreview and Config.hornPreview.button then
-        actions[#actions + 1] = { id = 'horn:modHorns', label = 'Test horn', icon = 'Music2', variant = 'ghost' }
+        -- holdToTest: a press-and-hold button (kora_lib `hold` action); older
+        -- kora_lib builds show it as a normal button that plays the horn once.
+        local hold = Config.hornPreview.holdToTest == true
+        actions[#actions + 1] = {
+            id = 'horn:modHorns', label = hold and 'Hold to test horn' or 'Test horn', icon = 'Music2', variant = 'ghost',
+            hold = hold or nil,
+        }
     end
     return {
         id = field,
         label = label,
-        description = ('%s · %s once%s'):format(valueName, dollars(Config.prices[price]), changed and ' · changed' or ''),
+        description = ('%s · %s once%s'):format(valueName, dollars(Customs.unitPrice(field)), changed and ' · changed' or ''),
         tone = changed and 'primary' or nil,
         actions = actions,
     }
@@ -394,7 +408,7 @@ local function toggleItem(field, enabled, price)
     return {
         id = field,
         label = fieldLabels[field],
-        description = ('%s once%s'):format(dollars(Config.prices[price]), changed and ' · changed' or ''),
+        description = ('%s once%s'):format(dollars(Customs.unitPrice(field)), changed and ' · changed' or ''),
         tone = changed and 'primary' or nil,
         actions = { { id = 'toggle:' .. field, label = enabled and 'Turn off' or 'Turn on', state = enabled } },
     }
@@ -409,12 +423,11 @@ local function rgbItem(field, label)
         hex = ('#%02x%02x%02x'):format(current.r or 255, current.g or 255, current.b or 255)
     end
 
-    local price = (field == 'color1' or field == 'color2') and 'customPaint' or 'lighting'
     local changed = type(active.pending[field]) == 'table'
     return {
         id = 'rgb_' .. field,
         label = label,
-        description = ('%s once%s'):format(dollars(Config.prices[price]), changed and ' · changed' or ''),
+        description = ('%s once%s'):format(dollars(Customs.unitPrice(field, { r = 0, g = 0, b = 0 })), changed and ' · changed' or ''),
         tone = changed and 'primary' or nil,
         actions = { {
             id = 'color:' .. field,
@@ -435,7 +448,7 @@ local function extraItem(id)
     return {
         id = 'extra_' .. id,
         label = ('Vehicle extra %d'):format(id),
-        description = ('%s each%s'):format(dollars(Config.prices.extra), changed and ' · changed' or ''),
+        description = ('%s each%s'):format(dollars(Customs.unitPrice('extras')), changed and ' · changed' or ''),
         tone = changed and 'primary' or nil,
         actions = { { id = 'extra:' .. id, label = enabled and 'Turn off' or 'Turn on', state = enabled } },
     }
@@ -484,7 +497,8 @@ local function buildNavigation()
             icon = icon,
             content = {
                 title = label,
-                description = ('Pending total: %s'):format(dollars(amount)),
+                description = amount > 0 and ('Pending total: %s'):format(dollars(amount))
+                    or 'Nothing selected yet. Each option shows its price; you pay at Purchase changes.',
                 actions = headerActions,
                 blocks = blocks,
             },
@@ -923,6 +937,14 @@ end
 local scalarActions = { step = stepField, set = setField, toggle = toggleField, extra = toggleExtra, color = pickColor, horn = testHorn }
 
 local function onAction(actionId, context)
+    -- press / release of a hold button; kora_lib ignores what a hold returns
+    if type(context) == 'table' and (context.hold == 'start' or context.hold == 'end') then
+        if actionId == 'horn:modHorns' then
+            holdHorn(context.hold == 'start' and active ~= nil and not active.busy and vehicleIsUsable(active.vehicle))
+        end
+        return
+    end
+
     local session = active
     if not session or session.busy then return end
 
@@ -1232,13 +1254,13 @@ AddEventHandler('onClientResourceStop', function(resource)
     end
 end)
 
--- Hold-to-test (Config.hornPreview.holdToTest): the horn sounds while holdKey
--- is held, up to maxHoldMs. The game only sees keys while the panel is hidden
--- (Hide menu), so this is an opt-in extra to the Test horn button.
+-- Hold-to-test key (Config.hornPreview.holdKey): the same continuous horn as
+-- the hold button while the key is held. The game only sees keys while the
+-- panel is hidden (Hide menu), so it is an extra to the button.
 RegisterCommand('+kora_customs_horn', function()
-    if active and Config.hornPreview and Config.hornPreview.holdToTest then playHorn(hornOption('maxHoldMs', 15000)) end
+    if active and Config.hornPreview and Config.hornPreview.holdToTest then holdHorn(true) end
 end, false)
-RegisterCommand('-kora_customs_horn', function() stopHorn() end, false)
+RegisterCommand('-kora_customs_horn', function() holdHorn(false) end, false)
 if Config.hornPreview and Config.hornPreview.holdKey then
     RegisterKeyMapping('+kora_customs_horn', 'Customs: hold to test horn', 'keyboard', Config.hornPreview.holdKey)
 end
