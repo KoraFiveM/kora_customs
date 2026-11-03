@@ -205,4 +205,94 @@ assert(ok == true and calls.charge.amount == 500, 'allowFreeFields restores the 
 Config.interaction.allowFreeFields = false
 Config.prices.windowTint = tintPrice
 
+-- Factory look (Config.factoryLook): a car with no stored look keeps the look
+-- read when the session opened as its baseline, once; paid orders merge on top.
+local factoryLook = handlers['kora_customs:factoryLook']
+assert(type(factoryLook) == 'function', 'factory look callback registered')
+assert(Config.factoryLook.enabled == true and Config.factoryLook.fillMissing == true, 'the factory look is stored by default')
+
+local function useCar(plate, mods)
+    GetVehicleNumberPlateText = function() return ' ' .. plate .. ' ' end
+    row.plate, row.mods, row.citizenid = plate, mods, 'CID1'
+    calls = {}
+end
+local snapshot = {
+    plate = 'FRESH1', model = 100, fuelLevel = 63.0, engineHealth = 1000.0, bodyHealth = 990.0,
+    modEngine = 3, modTurbo = true, tireHealth = { [0] = 1000.0 },
+    color1 = 27, color2 = 0, pearlescentColor = 5, wheelColor = 156, windowTint = -1, xenonColor = 255,
+    neonEnabled = { false, false, false, false }, extras = { ['1'] = true, ['2'] = false }, modSpoilers = -1,
+}
+
+useCar('FRESH1', nil)
+ok, result = factoryLook(1, 'bennys', 99, 'not a table')
+assert(ok == false and calls.save == nil, 'a snapshot that is not a props table is refused')
+snapshot.plate = 'OTHER9'
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == false and calls.save == nil, 'a snapshot of another car is refused')
+snapshot.plate = 'FRESH1'
+snapshot.model = 101
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == false and calls.save == nil, 'a snapshot of another model is refused')
+snapshot.model = 100
+row.citizenid = 'OTHER'
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == false and result == 'this is not your vehicle' and calls.save == nil, 'only the player\'s own car')
+row.citizenid = 'CID1'
+row.state = 'garaged'
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == false and calls.save == nil, 'only a car that is out')
+row.state = 'out'
+Config.factoryLook.enabled = false
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == false and calls.save == nil, 'enabled = false stores nothing')
+Config.factoryLook.enabled = true
+
+before = balance
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == true and result.stored == true and calls.save.plate == 'FRESH1', 'a car with no stored look gets its baseline')
+local base = calls.save.properties
+assert(base.color1 == 27 and base.color2 == 0 and base.pearlescentColor == 5 and base.wheelColor == 156
+    and base.windowTint == -1 and base.modSpoilers == -1 and base.neonEnabled[1] == false
+    and base.extras['1'] == true and base.extras['2'] == false, 'the cosmetic fields are stored as read')
+assert(base.modEngine == nil and base.modTurbo == nil and base.plate == nil and base.model == nil and base.fuelLevel == nil
+    and base.engineHealth == nil and base.bodyHealth == nil and base.tireHealth == nil,
+    'performance, identity and condition never come from the snapshot')
+assert(base.xenonColor == nil, 'a field that fails its check is left out')
+assert(balance == before and calls.charge == nil, 'storing the baseline charges nothing')
+
+row.mods = nil
+calls = {}
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == true and result.stored == false and calls.save == nil, 'the baseline is stored once per plate')
+
+row.mods = base
+ok, result = purchase(1, 'bennys', 99, { windowTint = 3 }, Config.prices.windowTint)
+assert(ok == true and calls.save.properties.windowTint == 3 and calls.save.properties.color1 == 27
+    and calls.save.properties.wheelColor == 156, 'a paid order merges on top of the baseline')
+
+-- a row with part of a look (customised before it was first parked)
+useCar('PAID01', { windowTint = 3, color1 = 12, modEngine = 2 })
+snapshot.plate = 'PAID01'
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+local filled = calls.save and calls.save.properties
+assert(ok == true and result.stored == true and filled.windowTint == 3 and filled.color1 == 12 and filled.modEngine == 2
+    and filled.color2 == 0 and filled.wheelColor == 156, 'fillMissing adds only the missing fields; stored ones win')
+
+Config.factoryLook.fillMissing = false
+useCar('PAID02', { windowTint = 3 })
+snapshot.plate = 'PAID02'
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == true and result.stored == false and calls.save == nil, 'without fillMissing a row with a look is left alone')
+Config.factoryLook.fillMissing = true
+
+-- a failed save may be retried by the next session
+useCar('FAIL01', nil)
+snapshot.plate = 'FAIL01'
+saveSucceeds = false
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == false and result == 'database unavailable', 'a failed save is reported')
+saveSucceeds = true
+ok, result = factoryLook(1, 'bennys', 99, snapshot)
+assert(ok == true and result.stored == true, 'a failed save does not use up the one baseline')
+
 print('qbcustoms server: ok')

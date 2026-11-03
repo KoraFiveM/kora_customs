@@ -246,6 +246,50 @@ function Customs.merge(existing, patch)
     return merged
 end
 
+-- The shop's cosmetic fields of a whole property snapshot
+-- (Kora.vehicle.getProperties), each checked like an order field. A field that
+-- fails the check is left out instead of failing the snapshot (an unset xenon
+-- colour reads as 255); everything else (performance mods, plate, fuel,
+-- condition) is dropped. Used for Config.factoryLook.
+---@param properties any
+---@return table|nil look
+function Customs.lookOf(properties)
+    if type(properties) ~= 'table' then return nil end
+    local look = {}
+    for field, rule in pairs(rules) do
+        local value = properties[field]
+        if value ~= nil then
+            local sanitized = sanitizeValue(rule, value)
+            if sanitized ~= nil then look[field] = sanitized end
+        end
+    end
+    return next(look) and look or nil
+end
+
+-- Whether stored properties already hold any of the shop's cosmetic fields.
+---@param stored any
+---@return boolean
+function Customs.hasLook(stored)
+    if type(stored) ~= 'table' then return false end
+    for field in pairs(rules) do
+        if stored[field] ~= nil then return true end
+    end
+    return false
+end
+
+-- The fields of `look` that `stored` does not have yet.
+---@param stored any
+---@param look table
+---@return table
+function Customs.missingLook(stored, look)
+    stored = type(stored) == 'table' and stored or {}
+    local missing = {}
+    for field, value in pairs(look) do
+        if stored[field] == nil then missing[field] = value end
+    end
+    return missing
+end
+
 -- On-duty players across the mechanic job names (Config.selfRepair). `count`
 -- returns one job's on-duty count: kora_core on the server, the replicated
 -- GlobalState.OnDuty table on the client.

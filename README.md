@@ -87,6 +87,22 @@ the properties the client reads off the vehicle. Keep its
 `Config.TrustClientCosmetics = false` so paint, tint and every other cosmetic
 field comes from the stored (paid) row instead of an unpaid preview.
 
+**Factory look.** kora_dealership saves a bought car with no stored look, and
+kora_garages (`Config.SaveUnstoredLook = false`) then stores none when it is
+parked, so the game could give it other colours each time it is spawned. With
+`Config.factoryLook.enabled` (default), opening the shop on your own car whose
+row has no look yet stores the look the client read off the car when the
+session opened, before any preview, as the car's baseline; paid orders then
+merge on top of it. The server checks the shop, the driver, ownership, plate and
+model, keeps only the shop's cosmetic fields (each checked like an order field;
+never performance mods, plate, fuel or condition), charges nothing, and does
+it once per plate while the resource runs. `fillMissing` (default on) also adds
+the fields a row with only part of a look lacks (a car customised before it
+was first parked); fields already stored always win. Previews only exist on the
+client, so the server trusts the client for this one snapshot: a modified
+client could store a look it never paid for on such a car, once. Turn
+`enabled` off if that matters more than keeping factory colours.
+
 **Horn preview.** `Config.hornPreview`: the selected horn sounds once when it
 changes (Previous / Next / Choose), and the horn row has a **Test horn** button
 that plays the fitted horn once per click. Each play runs the horn's whole

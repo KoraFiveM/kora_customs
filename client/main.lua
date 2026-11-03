@@ -1068,6 +1068,15 @@ local function open(shopId)
     active = session
     FreezeEntityPosition(vehicle, true)
 
+    -- Config.factoryLook: the look read above, before any preview, becomes the
+    -- stored baseline of a car that has none yet; the server decides if it is.
+    if type(Config.factoryLook) == 'table' and Config.factoryLook.enabled == true then
+        CreateThread(function()
+            local taken, result = Kora.callback.trigger('kora_customs:factoryLook', shopId, netId, original)
+            if Config.debug and not taken then Kora.print.debug(('factory look not stored: %s'):format(tostring(result))) end
+        end)
+    end
+
     CreateThread(function()
         local ok, err = pcall(function()
             refresh()

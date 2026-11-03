@@ -148,6 +148,65 @@ Kora.callback.register('qbcustoms:purchase', function(src, shopId, netId, reques
     return true, err
 end, { rateLimit = { max = 4, window = 10000 } })
 
+-- Factory look (Config.factoryLook). A bought car is saved with no look and the
+-- garage stores none for it, so the client sends the properties it read when
+-- the session opened, before any preview. They are kept only for the driver's
+-- own car at the shop, only while its row has no look (or, with fillMissing,
+-- for the fields it lacks), only the shop's cosmetic fields, and once per plate
+-- while the resource runs. Previews are local to the client, so the server
+-- cannot see them: the snapshot must be the one taken before the first.
+local lookTaken = {}
+
+local function factoryLookSettings()
+    return type(Config.factoryLook) == 'table' and Config.factoryLook or {}
+end
+
+Kora.callback.register('kora_customs:factoryLook', function(src, shopId, netId, properties)
+    local settings = factoryLookSettings()
+    if settings.enabled ~= true then return false, 'factory look is not stored' end
+    if type(properties) ~= 'table' then return false, 'invalid vehicle properties' end
+
+    local resolved, resolveErr = resolveShop(src, shopId)
+    if not resolved then return false, resolveErr end
+    local vehicle, vehicleErr = resolveVehicle(src, resolved, netId)
+    if not vehicle then return false, vehicleErr end
+    local row, rowErr = ownedRow(src, vehicle)
+    if not row then return false, rowErr end
+
+    -- the snapshot must be of this car
+    if properties.plate ~= nil and normalizePlate(properties.plate) ~= normalizePlate(row.plate) then
+        return false, 'vehicle properties are for another vehicle'
+    end
+    -- (model hashes compared as unsigned: one side may report them signed)
+    local model = tonumber(properties.model)
+    if properties.model ~= nil and type(GetEntityModel) == 'function'
+        and (not model or model % 4294967296 ~= GetEntityModel(vehicle) % 4294967296) then
+        return false, 'vehicle properties are for another model'
+    end
+
+    if lookTaken[row.plate] then return true, { stored = false } end
+    if purchasing[row.plate] then return false, 'this vehicle already has a purchase in progress' end
+    local stored = type(row.mods) == 'table' and row.mods or {}
+    if Customs.hasLook(stored) and settings.fillMissing ~= true then
+        lookTaken[row.plate] = true
+        return true, { stored = false }
+    end
+    local look = Customs.lookOf(properties)
+    if not look then return false, 'invalid vehicle properties' end
+    local missing = Customs.missingLook(stored, look)
+    if next(missing) == nil then
+        lookTaken[row.plate] = true
+        return true, { stored = false }
+    end
+
+    purchasing[row.plate] = true
+    local saved, saveErr = core('saveVehicleProperties', row.plate, Customs.merge(stored, missing))
+    purchasing[row.plate] = nil
+    if not saved then return false, saveErr or 'could not store the factory look' end
+    lookTaken[row.plate] = true
+    return true, { stored = true }
+end, { rateLimit = { max = 4, window = 10000 } })
+
 -- Self-service repair (Config.selfRepair). repairStart checks everything and
 -- opens a ticket; repairFinish, once the progress bar has had time to run,
 -- checks it all again, charges, and lets the client fix the vehicle.

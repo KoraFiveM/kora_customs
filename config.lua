@@ -217,6 +217,23 @@ Config.hornPreview = {
     holdKey = false,
 }
 
+-- Factory look. kora_dealership saves a bought car with no stored look, and
+-- kora_garages (Config.SaveUnstoredLook = false) then stores none when it is
+-- parked, so the game can give it other colours each time it is spawned. When
+-- a session opens on the player's own car and its stored row has no look yet,
+-- the client sends the properties it read off the car before any preview, and
+-- the server stores them as the car's baseline, once; paid orders then merge on
+-- top. Only the shop's cosmetic fields are kept (each checked like an order
+-- field), never performance mods, plate, fuel or condition.
+--   enabled      store the baseline at all
+--   fillMissing  also add the fields a row with only part of a look lacks (a
+--                car customised before it was first parked stores only what
+--                was bought); fields already stored always win
+Config.factoryLook = {
+    enabled = true,
+    fillMissing = true,
+}
+
 -- Self-service repair at the shop zones, for when no mechanic is around.
 -- Drivers get a "Repair vehicle" target option that fixes the engine, body and
 -- fuel tank for `price`, after a `durationMs` progress bar. The server checks
