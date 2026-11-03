@@ -52,4 +52,8 @@ local plays = 0
 for _ in holdBody:gmatch("playHorn%(") do plays = plays + 1 end
 assert(plays == 1 and holdBody:find("maxHoldMs", 1, true), "press starts the horn once, capped at maxHoldMs")
 assert(not holdBody:find("while", 1, true) and not holdBody:find("SetTimeout", 1, true), "a held horn is not re-triggered")
+-- F#428: the hold key goes through Kora.keybind, keeping the +kora_customs_horn command name.
+assert(not source:find("RegisterKeyMapping", 1, true), "no raw RegisterKeyMapping; Kora.keybind owns the mapping")
+assert(not source:find("RegisterCommand('+kora_customs_horn'", 1, true), "no raw +kora_customs_horn command")
+assert(source:find("Kora%.keybind%.add%(%{%s*name = 'kora_customs_horn'"), "hold key registered with Kora.keybind.add")
 print("kora_customs horn config: ok")
