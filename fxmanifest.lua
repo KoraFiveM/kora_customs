@@ -21,7 +21,6 @@ dependencies {
 }
 
 shared_script '@kora_lib/init.lua'
-shared_script '@kora_sql/init.lua'
 shared_scripts {
     'config.lua',
     'shared/catalog.lua',
