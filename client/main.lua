@@ -174,6 +174,14 @@ local function holdHornKey(token, duration)
     end)
 end
 
+-- Config.hornPreview length of the horn fitted to the vehicle (durationMs /
+-- durations / byIndex).
+local function hornLength(vehicle)
+    local horn = GetVehicleMod(vehicle, HORN_SLOT)
+    return math.max(100, Customs.hornDuration(Config.hornPreview, horn,
+        horn >= 0 and localizedModName(vehicle, HORN_SLOT, horn) or nil))
+end
+
 -- Sounds the horn fitted to the vehicle once, from the start, for its
 -- Config.hornPreview length (or `duration`). The short delay lets a running
 -- preview stop first and a horn mod fitted this frame take effect.
@@ -185,8 +193,7 @@ local function playHorn(duration)
     SetTimeout(math.max(0, hornOption('startDelayMs', 150)), function()
         if token ~= hornToken or not active or active.vehicle ~= vehicle or not DoesEntityExist(vehicle) then return end
         local horn = GetVehicleMod(vehicle, HORN_SLOT)
-        duration = math.max(100, duration
-            or Customs.hornDuration(Config.hornPreview, horn, horn >= 0 and localizedModName(vehicle, HORN_SLOT, horn) or nil))
+        duration = duration and math.max(100, duration) or hornLength(vehicle)
         if hornMethod() == 'input' then return holdHornKey(token, duration) end
         soundOnProxy(token, vehicle, horn, duration)
     end)
@@ -199,10 +206,29 @@ end
 
 -- Hold to test (Config.hornPreview.holdToTest): one continuous horn from press
 -- to release, capped at maxHoldMs. It is started once, never re-triggered, so
--- it does not stutter; release, closing the menu or leaving stops it.
+-- it does not stutter; release, closing the menu or leaving stops it. With
+-- clickPlaysFull a release before the horn's normal preview length lets it
+-- play that long: a click (released within ~0.1 s, before the horn has even
+-- started) still plays the whole horn once.
+local holdFullUntil -- game time a click's horn may play until
 local function holdHorn(held)
-    if not held then return stopHorn() end
+    if not held then
+        local remaining = holdFullUntil and holdFullUntil - GetGameTimer() or 0
+        holdFullUntil = nil
+        if remaining <= 0 then return stopHorn() end
+        local token = hornToken
+        -- one deferred stop of this same horn; a newer press or a stop wins
+        SetTimeout(remaining, function()
+            if token == hornToken then stopHorn() end
+        end)
+        return
+    end
+    holdFullUntil = nil
     playHorn(math.max(500, hornOption('maxHoldMs', 15000)))
+    local vehicle = active and active.vehicle
+    if Config.hornPreview.clickPlaysFull ~= false and vehicle and DoesEntityExist(vehicle) then
+        holdFullUntil = GetGameTimer() + math.max(0, hornOption('startDelayMs', 150)) + hornLength(vehicle)
+    end
 end
 
 -- Paint and glass are put back with direct natives as well as through

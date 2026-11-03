@@ -181,6 +181,10 @@ Config.camera = {
 --                 hold actions; older ones play it once per click instead.
 --                 false: "Test horn" plays the horn once per click for its
 --                 durationMs / durations length
+--   clickPlaysFull  with holdToTest: a release before the horn's normal preview
+--                 length (durationMs / durations) lets it play that long, so a
+--                 click plays the whole horn once and holding keeps it going.
+--                 false: the horn stops the moment the button is released
 --   maxHoldMs     cap on a held horn; it always stops on release, when the menu
 --                 closes, the player leaves the vehicle or the resource stops
 --   holdKey       optional RegisterKeyMapping key that also holds the horn
@@ -200,6 +204,7 @@ Config.hornPreview = {
     startDelayMs = 150,
     mode = 'HELDDOWN',
     holdToTest = true,
+    clickPlaysFull = true,
     maxHoldMs = 15000,
     holdKey = false,
 }

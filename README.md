@@ -90,7 +90,9 @@ field comes from the stored (paid) row instead of an unpaid preview.
 **Horn preview.** `Config.hornPreview`: the selected horn sounds once when it
 changes, and the horn row has a **Hold to test horn** button: the horn sounds
 continuously while the button is held (mouse, Enter or Space) and stops on
-release, capped at `maxHoldMs`. It needs a kora_lib app shell with `hold`
+release, capped at `maxHoldMs`. A click shorter than the horn's preview
+length still plays the whole horn once (`clickPlaysFull = true`, default;
+`false` stops it on release). It needs a kora_lib app shell with `hold`
 actions; older shells show a plain button that plays the horn once. With
 `holdToTest = false` the button is **Test horn**, which plays the horn once per
 click. A new preview cuts the running one first, so previews never overlap.

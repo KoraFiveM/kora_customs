@@ -51,5 +51,13 @@ assert(holdBody:find("stopHorn()", 1, true), "release stops the horn")
 local plays = 0
 for _ in holdBody:gmatch("playHorn%(") do plays = plays + 1 end
 assert(plays == 1 and holdBody:find("maxHoldMs", 1, true), "press starts the horn once, capped at maxHoldMs")
-assert(not holdBody:find("while", 1, true) and not holdBody:find("SetTimeout", 1, true), "a held horn is not re-triggered")
+assert(not holdBody:find("while", 1, true), "a held horn is not re-triggered")
+local _, timers = holdBody:gsub("SetTimeout%(", "")
+assert(timers == 1 and holdBody:find("if token == hornToken then stopHorn() end", 1, true),
+    "release only defers one stop of the same horn")
+-- A click on the hold button is press + release ~0.1 s apart, before the
+-- start delay is over: without clickPlaysFull it played nothing at all.
+assert(h.clickPlaysFull == true, "a click on the hold button plays the whole horn once by default")
+assert(holdBody:find("clickPlaysFull ~= false", 1, true) and holdBody:find("hornLength(vehicle)", 1, true),
+    "a click keeps the horn for its normal preview length")
 print("kora_customs horn config: ok")
