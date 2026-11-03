@@ -182,19 +182,20 @@ Config.camera = {
 --   startDelayMs  pause before sounding, so a previous preview is cut cleanly
 --                 and a horn fitted the same moment is the one heard
 --   mode          StartVehicleHorn mode: 'HELDDOWN' (held horn) or 'NORMAL'
---   holdToTest    true: the button is "Hold to test horn": the horn sounds
+--   holdToTest    false (default): "Test horn" plays the fitted horn once per
+--                 click for its durationMs / durations length, like Next and
+--                 Previous do; a new click starts it again from the beginning.
+--                 true: the button is "Hold to test horn": the horn sounds
 --                 continuously from press to release (mouse, Enter or Space), up
 --                 to maxHoldMs, with no repeats. Needs a kora_lib app shell with
 --                 hold actions; older ones play it once per click instead.
---                 false: "Test horn" plays the horn once per click for its
---                 durationMs / durations length
 --   clickPlaysFull  with holdToTest: a release before the horn's normal preview
 --                 length (durationMs / durations) lets it play that long, so a
 --                 click plays the whole horn once and holding keeps it going.
 --                 false: the horn stops the moment the button is released
 --   maxHoldMs     cap on a held horn; it always stops on release, when the menu
 --                 closes, the player leaves the vehicle or the resource stops
---   holdKey       optional RegisterKeyMapping key that also holds the horn
+--   holdKey       with holdToTest: optional RegisterKeyMapping key that also holds the horn
 --                 (players can rebind it); the game only sees it while the panel
 --                 is hidden (Hide menu). false = no key mapping
 Config.hornPreview = {
@@ -210,7 +211,7 @@ Config.hornPreview = {
     byIndex = {},
     startDelayMs = 150,
     mode = 'HELDDOWN',
-    holdToTest = true,
+    holdToTest = false,
     clickPlaysFull = true,
     maxHoldMs = 15000,
     holdKey = false,

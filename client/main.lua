@@ -1282,11 +1282,14 @@ end)
 
 -- Hold-to-test key (Config.hornPreview.holdKey): the same continuous horn as
 -- the hold button while the key is held. The game only sees keys while the
--- panel is hidden (Hide menu), so it is an extra to the button.
+-- panel is hidden (Hide menu), so it is an extra to the button. Without
+-- holdToTest a release must not cut a Next / Test horn preview short.
 RegisterCommand('+kora_customs_horn', function()
     if active and Config.hornPreview and Config.hornPreview.holdToTest then holdHorn(true) end
 end, false)
-RegisterCommand('-kora_customs_horn', function() holdHorn(false) end, false)
+RegisterCommand('-kora_customs_horn', function()
+    if Config.hornPreview and Config.hornPreview.holdToTest then holdHorn(false) end
+end, false)
 if Config.hornPreview and Config.hornPreview.holdKey then
     RegisterKeyMapping('+kora_customs_horn', 'Customs: hold to test horn', 'keyboard', Config.hornPreview.holdKey)
 end

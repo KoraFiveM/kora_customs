@@ -4,7 +4,8 @@ dofile("config.lua")
 dofile("shared/horn.lua")
 local h = Config.hornPreview
 assert(type(h.holdToTest) == "boolean", "holdToTest is a documented boolean")
-assert(h.holdToTest == true and h.holdKey == false, "the test button is hold-to-play by default; no key is bound unless asked")
+assert(h.holdToTest == false and h.holdKey == false,
+    "Test horn plays once per click by default (hold to test is the opt-in); no key is bound unless asked")
 assert(h.maxHoldMs >= 500, "maxHoldMs is a sane cap")
 assert(h.method == "proxy", "the preview sounds from a stand-in with nobody in the driver seat by default")
 assert(h.durationMs >= 500 and h.durationMs <= 3000, "a plain horn sounds like a short press")
@@ -60,4 +61,19 @@ assert(timers == 1 and holdBody:find("if token == hornToken then stopHorn() end"
 assert(h.clickPlaysFull == true, "a click on the hold button plays the whole horn once by default")
 assert(holdBody:find("clickPlaysFull ~= false", 1, true) and holdBody:find("hornLength(vehicle)", 1, true),
     "a click keeps the horn for its normal preview length")
+
+-- Default (holdToTest = false): Next / Previous / Choose and Test horn each
+-- play the fitted horn once for its whole preview length, and a new click
+-- cuts the running preview and starts again from the beginning.
+assert(source:find("hold and 'Hold to test horn' or 'Test horn'", 1, true), "without holdToTest the button is a plain Test horn")
+assert(source:find("horn = testHorn", 1, true), "the plain button runs testHorn")
+local testBody = assert(source:match("local function testHorn%(%)(.-)\nend"), "testHorn exists")
+assert(testBody:find("playHorn()", 1, true) and not testBody:find("SetTimeout", 1, true) and not testBody:find("while", 1, true),
+    "Test horn plays the horn once, at its own preview length")
+assert(source:find("Config.hornPreview.autoPlay then playHorn() end", 1, true), "Next / Previous / Choose play the new horn once")
+local playBody = assert(source:match("local function playHorn%(duration%)(.-)\nend"), "playHorn exists")
+assert(playBody:find("stopHorn()", 1, true) and playBody:find("hornLength(vehicle)", 1, true),
+    "a new click cuts the running preview and plays the whole horn")
+assert(source:find("Config.hornPreview.holdToTest then holdHorn(false) end", 1, true),
+    "releasing the hold key only stops a held horn, never a click's preview")
 print("kora_customs horn config: ok")
