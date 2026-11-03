@@ -119,6 +119,13 @@ and the per-character `cooldownSeconds` before charging `account`; the engine,
 body and fuel tank are then fixed. Set `enabled = false` to keep the shop purely
 cosmetic.
 
+**Targeting from the driver seat.** kora_target blocks targeting while seated
+(`Config.target.disableInVehicle`). The shop options set `allowInVehicle = true`
+so **Customise vehicle** and **Repair vehicle** still work from the driver seat
+(hold the target key, ALT by default). `Config.targetAllowInVehicle` (default
+`true`) controls this; `false` leaves the field off. Older kora_target builds
+ignore the field.
+
 **Who can use the shop.** There is no job check: the shop is a public,
 self-service cosmetic shop. Access is decided by the location (a `Config.shops`
 entry, the player must be at it), sitting in the driver seat, and the vehicle

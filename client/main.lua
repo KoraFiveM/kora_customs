@@ -1221,15 +1221,15 @@ local function registerTargets()
             distance = Config.interaction.distance,
             debug = Config.debug,
             options = {
-                {
+                Customs.allowInVehicle({
                     label = ('Customise vehicle at %s'):format(shop.label),
                     icon = 'palette',
                     canInteract = function()
                         return vehicleIsUsable(GetVehiclePedIsIn(PlayerPedId(), false))
                     end,
                     onSelect = function() open(shopId) end,
-                },
-                repairSettings() and {
+                }, Config.targetAllowInVehicle),
+                repairSettings() and Customs.allowInVehicle({
                     label = ('Repair vehicle (%s)'):format(dollars(math.max(0, tonumber(Config.selfRepair.price) or 0))),
                     icon = 'wrench',
                     canInteract = function()
@@ -1238,7 +1238,7 @@ local function registerTargets()
                             and vehicleIsUsable(GetVehiclePedIsIn(PlayerPedId(), false))
                     end,
                     onSelect = function() repairVehicle(shopId) end,
-                } or nil,
+                }, Config.targetAllowInVehicle) or nil,
             },
         })
     end

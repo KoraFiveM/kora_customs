@@ -12,6 +12,13 @@ assert(Customs.mechanicsOnDuty({ 'mechanic', 'bennys' }, function(job) return ({
 assert(Customs.mechanicsOnDuty({ 'mechanic' }, function() return nil end) == 0, 'missing counts are zero')
 assert(Customs.mechanicsOnDuty(nil, function() return 5 end) == 0, 'no jobs configured counts nobody')
 
+-- target options stay usable while seated unless Config.targetAllowInVehicle = false
+assert(Config.targetAllowInVehicle == true, 'defaults to on')
+assert(Customs.allowInVehicle({}, Config.targetAllowInVehicle).allowInVehicle == true)
+assert(Customs.allowInVehicle({}, nil).allowInVehicle == true, 'unset follows the default')
+assert(Customs.allowInVehicle({}, false).allowInVehicle == nil, 'false leaves the field off')
+assert(Customs.allowInVehicle(nil, true) == nil, 'missing option passes through')
+
 local handlers = {}
 Kora = {
     distance = { coords = function(a, b, distance)

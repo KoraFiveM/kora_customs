@@ -260,3 +260,13 @@ function Customs.mechanicsOnDuty(jobs, count)
     end
     return total
 end
+
+---Marks a kora_target option as usable while seated (drivers use the shop from
+---the driver seat). Older kora_target builds ignore the field.
+---@param option table|nil
+---@param allow boolean|nil Config.targetAllowInVehicle; only an explicit false turns it off
+---@return table|nil
+function Customs.allowInVehicle(option, allow)
+    if type(option) == 'table' and allow ~= false then option.allowInVehicle = true end
+    return option
+end

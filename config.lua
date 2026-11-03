@@ -2,6 +2,13 @@ Config = {}
 
 Config.debug = false
 
+-- kora_target blocks all targeting while seated (so ATMs and similar cannot be
+-- used from a vehicle). The shop's "Customise vehicle" and "Repair vehicle"
+-- options are for drivers, so they set `allowInVehicle = true` to stay usable
+-- from the driver seat. Set to false to leave the field off and follow
+-- kora_target's default. kora_target builds without the field ignore it.
+Config.targetAllowInVehicle = true
+
 Config.interaction = {
     distance = 4.0,
     checkoutDistance = 12.0,
