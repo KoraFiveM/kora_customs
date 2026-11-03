@@ -158,8 +158,21 @@ Config.camera = {
 --   autoPlay      sound the selected horn whenever it changes (Previous/Next/Choose)
 --   button        add a "Test horn" button to the horn row; each press plays the
 --                 horn once from the start (pressing again restarts it)
---   durationMs    how long one preview sounds. Long enough for the musical and
---                 classical horns to finish; a plain horn sounds for this long
+--   method        how the preview is sounded. The game only gives a horn a short
+--                 tap while a player sits in the driver seat (StartVehicleHorn
+--                 ignores its duration then), and the shop keeps the player there:
+--                 'proxy'  a hidden, local copy of the vehicle with the same horn
+--                          fitted and nobody in it sounds the horn for the full
+--                          time; only this player hears it
+--                 'input'  holds the horn key (control 86) for the preview, as if
+--                          the player held it; the whole server hears it
+--   durationMs    how long a horn sounds when no rule below names it (plain horns:
+--                 truck, cop, clown, air horns, the scale notes)
+--   durations     { match = text or list, ms = length }: the first rule whose text
+--                 is part of the horn's displayed name (any case) sets its length.
+--                 A loop horn repeats for as long as it sounds, so its length is
+--                 one pass through the tune. Translate `match` for other languages
+--   byIndex       [horn mod index] = ms, checked before `durations`
 --   startDelayMs  pause before sounding, so a previous preview is cut cleanly
 --                 and a horn fitted the same moment is the one heard
 --   mode          StartVehicleHorn mode: 'HELDDOWN' (held horn) or 'NORMAL'
@@ -173,7 +186,14 @@ Config.camera = {
 Config.hornPreview = {
     autoPlay = true,
     button = true,
-    durationMs = 4000,
+    method = 'proxy',
+    durationMs = 1500,
+    durations = {
+        { match = 'loop', ms = 6000 },
+        { match = { 'musical', 'classical', 'jazz', 'star spangled', 'trombone', 'festive', 'halloween',
+            'spooky', 'funeral', 'san andreas', 'liberty city' }, ms = 5000 },
+    },
+    byIndex = {},
     startDelayMs = 150,
     mode = 'HELDDOWN',
     holdToTest = false,

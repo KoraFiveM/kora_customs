@@ -25,7 +25,8 @@ shared_script '@kora_sql/init.lua'
 shared_scripts {
     'config.lua',
     'shared/catalog.lua',
-    'shared/camera.lua'
+    'shared/camera.lua',
+    'shared/horn.lua'
 }
 
 client_script 'client/main.lua'

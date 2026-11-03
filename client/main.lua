@@ -101,29 +101,82 @@ local function hornOption(name, default)
     return value and math.floor(value) or default
 end
 
--- StartVehicleHorn sounds the fitted horn for a set time. Calling it again
--- while it sounds starts the sample over, so each preview calls it exactly
--- once: re-triggering it on a timer made long and musical horns stutter in a
--- loop and never reach the end, and kept streamed horns from starting at all.
-local hornToken, hornVehicle, hornUntil = 0, nil, 0
+-- The game only lets a horn sound briefly, like a tap, while a player is in
+-- the driver seat: StartVehicleHorn and SetHornPermanentlyOnTime both ignore
+-- their duration then. The shop keeps the player in that seat, so a preview on
+-- the player's own vehicle was always cut off after a moment and the musical
+-- horns, which take a moment to load, were often not heard at all. A preview
+-- therefore sounds from a stand-in (Config.hornPreview.method):
+--   proxy  a hidden local copy of the vehicle, the same horn fitted, nobody in it
+--   input  the horn key held for the preview, as if the player held it
+-- Each preview starts once and is cut when the next one starts, so it never
+-- loops or overlaps.
+local hornToken, hornProxy = 0, nil
+local HORN_SLOT, HORN_CONTROL = 14, 86
 
 local function hornMode()
     local mode = Config.hornPreview and Config.hornPreview.mode
     return GetHashKey(type(mode) == 'string' and mode ~= '' and mode or 'HELDDOWN')
 end
 
+local function hornMethod()
+    return Config.hornPreview and Config.hornPreview.method == 'input' and 'input' or 'proxy'
+end
+
+local function removeHornProxy(proxy)
+    if proxy == hornProxy then hornProxy = nil end
+    if not proxy or not DoesEntityExist(proxy) then return end
+    -- deleting the vehicle silences its horn straight away
+    if not Kora.entities.remove(proxy) and DoesEntityExist(proxy) then DeleteEntity(proxy) end
+end
+
 -- Silences a sounding preview and cancels one about to start. Safe at any time.
 local function stopHorn()
     hornToken = hornToken + 1
-    local vehicle, sounding = hornVehicle, GetGameTimer() < hornUntil
-    hornVehicle, hornUntil = nil, 0
-    -- a 1 ms horn replaces the running one and so cuts it off
-    if sounding and vehicle and DoesEntityExist(vehicle) then StartVehicleHorn(vehicle, 1, hornMode(), false) end
+    removeHornProxy(hornProxy)
 end
 
--- Sounds the selected horn once for `duration` ms, from the start: a preview
--- already playing is cut first. The short delay lets that cut land and the
--- game pick up a horn mod fitted this frame, so the new horn is the one heard.
+-- Kora.entities vehicles are local: no other player sees or hears this one,
+-- and it is deleted if the resource stops.
+local function createHornProxy(vehicle, horn)
+    local proxy = Kora.entities.create(GetEntityModel(vehicle), GetEntityCoords(vehicle), {
+        heading = GetEntityHeading(vehicle), freeze = true, invincible = true,
+    })
+    if not proxy then return nil end
+    SetEntityCollision(proxy, false, false)
+    -- alpha, not SetEntityVisible: it stays a live, audible vehicle
+    SetEntityAlpha(proxy, 0, false)
+    SetVehicleModKit(proxy, 0)
+    if horn >= 0 then SetVehicleMod(proxy, HORN_SLOT, horn, false) end
+    return proxy
+end
+
+local function soundOnProxy(token, vehicle, horn, duration)
+    local proxy = createHornProxy(vehicle, horn)
+    if not proxy then return end
+    -- a newer press or a stop while it spawned or settled wins
+    if token ~= hornToken then return removeHornProxy(proxy) end
+    hornProxy = proxy
+    Wait(0) -- one frame for the new vehicle's audio to be set up
+    if token ~= hornToken or not DoesEntityExist(proxy) then return removeHornProxy(proxy) end
+    StartVehicleHorn(proxy, duration, hornMode(), false)
+    SetTimeout(duration + 250, function() removeHornProxy(proxy) end)
+end
+
+-- Runs only while one preview sounds, and ends with it.
+local function holdHornKey(token, duration)
+    local untilAt = GetGameTimer() + duration
+    CreateThread(function()
+        while token == hornToken and GetGameTimer() < untilAt do
+            SetControlNormal(0, HORN_CONTROL, 1.0)
+            Wait(0)
+        end
+    end)
+end
+
+-- Sounds the horn fitted to the vehicle once, from the start, for its
+-- Config.hornPreview length (or `duration`). The short delay lets a running
+-- preview stop first and a horn mod fitted this frame take effect.
 local function playHorn(duration)
     local vehicle = active and active.vehicle
     if not vehicle or not DoesEntityExist(vehicle) then return end
@@ -131,9 +184,11 @@ local function playHorn(duration)
     local token = hornToken
     SetTimeout(math.max(0, hornOption('startDelayMs', 150)), function()
         if token ~= hornToken or not active or active.vehicle ~= vehicle or not DoesEntityExist(vehicle) then return end
-        duration = math.max(100, duration or hornOption('durationMs', 4000))
-        hornVehicle, hornUntil = vehicle, GetGameTimer() + duration
-        StartVehicleHorn(vehicle, duration, hornMode(), false)
+        local horn = GetVehicleMod(vehicle, HORN_SLOT)
+        duration = math.max(100, duration
+            or Customs.hornDuration(Config.hornPreview, horn, horn >= 0 and localizedModName(vehicle, HORN_SLOT, horn) or nil))
+        if hornMethod() == 'input' then return holdHornKey(token, duration) end
+        soundOnProxy(token, vehicle, horn, duration)
     end)
 end
 
