@@ -7,3 +7,4 @@ lua test/hornconfig.lua
 lua test/pauseconfig.lua
 lua test/server.lua
 lua test/selfrepair.lua
+lua test/devtools.lua
