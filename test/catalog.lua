@@ -98,4 +98,52 @@ equal(Customs.unitPrice('windowTint', 1), Config.prices.paint, 'tint falls back 
 equal(Customs.unitPrice('extras'), Config.prices.extra, 'extras keep their price')
 equal(Customs.unitPrice('modSpoilers', 1), Config.prices.body, 'mods keep their category price')
 
+-- Preview guard: what a revert must apply again, and which unpaid previews a
+-- later session finds still on the car.
+assert(Customs.showsValue('windowTint', 0, -1) and Customs.showsValue('windowTint', -1, -1),
+    'factory tint (-1) reads back as -1 or as none (0)')
+assert(not Customs.showsValue('windowTint', 5, -1) and not Customs.showsValue('windowTint', 0, 1), 'a real tint is a difference')
+assert(Customs.showsValue('color1', { r = 1, g = 2, b = 3 }, { r = 1, g = 2, b = 3 }) and not Customs.showsValue('color2', 4, 5),
+    'other fields compare by value')
+
+local before = { color1 = 5, color2 = 7, pearlescentColor = 3, windowTint = -1, neonColor = { r = 1, g = 1, b = 1 } }
+local drift = Customs.previewDrift({ color1 = 5, color2 = 12, pearlescentColor = 3, windowTint = 0, neonColor = { r = 9, g = 1, b = 1 } },
+    before, { color2 = true, windowTint = true, neonColor = true, pearlescentColor = true })
+equal(drift.color2, 7, 'a secondary preview that stayed is put back')
+equal(drift.windowTint, nil, 'tint none over factory is not a drift')
+equal(drift.neonColor.r, 1, 'RGB previews are put back')
+equal(drift.pearlescentColor, nil, 'a field that was put back is left alone')
+equal(drift.color1, nil, 'fields the session did not preview are not touched')
+drift.neonColor.r = 99
+equal(before.neonColor.r, 1, 'the patch is a copy')
+equal(next(Customs.previewDrift(nil, before, { color2 = true })), nil, 'no snapshot, no patch')
+equal(Customs.previewDrift({ windowTint = 5 }, before, { windowTint = true }).windowTint, -1, 'a stuck tint is put back to factory')
+
+local entry = Customs.rememberUnpaid(nil, before, { windowTint = 5, color2 = 40 })
+equal(entry.original.windowTint, -1, 'the value before the preview is kept')
+equal(entry.preview.windowTint, 5, 'the last preview is kept')
+entry = Customs.rememberUnpaid(entry, { windowTint = 5, color2 = 7, pearlescentColor = 3 }, { windowTint = 4, pearlescentColor = 9 })
+equal(entry.original.windowTint, -1, 'a later session that opened on the stuck preview keeps the first original')
+equal(entry.preview.windowTint, 4, 'and the latest preview')
+equal(entry.original.pearlescentColor, 3, 'new fields join the entry')
+equal(Customs.rememberUnpaid(nil, before, {}), nil, 'nothing previewed, nothing remembered')
+equal(Customs.rememberUnpaid(nil, before, { modEngine = 2 }), nil, 'a field the snapshot lacks is not remembered')
+
+local stuck = Customs.stuckPreviews({ windowTint = 4, color2 = 7, pearlescentColor = 11 }, entry)
+equal(stuck.windowTint, -1, 'a tint preview still on the car is put back')
+equal(stuck.color2, nil, 'a field already back is left alone')
+equal(stuck.pearlescentColor, nil, 'a field showing something else (bought, changed elsewhere) is left alone')
+equal(next(Customs.stuckPreviews({ windowTint = 0 }, { original = { windowTint = -1 }, preview = { windowTint = 0 } })), nil,
+    'a none-tint preview over factory glass is not undone (it looks the same)')
+equal(next(Customs.stuckPreviews({ windowTint = 4 }, nil)), nil, 'no entry, no patch')
+
+-- Window tint row: -1 .. 6 in SET_VEHICLE_WINDOW_TINT order, every tint reachable.
+local client = assert(io.open('client/main.lua')):read('a')
+local names = assert(client:match("local tintNames = (%b{})"), 'tint names exist')
+local count = 0
+for _ in names:gmatch("'[^']+'") do count = count + 1 end
+equal(count, Customs.rules.windowTint.max - Customs.rules.windowTint.min + 1, 'one tint name per value -1 .. 6')
+assert(names:find("'None', 'Pure Black', 'Dark Smoke', 'Light Smoke', 'Stock', 'Limo', 'Green'", 1, true),
+    'names follow the native order: 0 none, 1 pure black ... 6 green')
+
 print('qbcustoms catalog: ok')

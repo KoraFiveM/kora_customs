@@ -7,7 +7,9 @@ local wheelTypes = {
     'Sport', 'Muscle', 'Lowrider', 'SUV', 'Offroad', 'Tuner', 'Bike',
     'High End', "Benny's Original", "Benny's Bespoke", 'Open Wheel', 'Street', 'Track',
 }
-local tintNames = { 'Stock', 'Pure Black', 'Dark Smoke', 'Light Smoke', 'Standard', 'Limo', 'Green' }
+-- Window tint -1 .. 6: -1 is the model's own glass, then the game's tints in
+-- SET_VEHICLE_WINDOW_TINT order (0 none, 1 pure black ... 4 stock, 5 limo, 6 green).
+local tintNames = { 'Factory', 'None', 'Pure Black', 'Dark Smoke', 'Light Smoke', 'Stock', 'Limo', 'Green' }
 local plateNames = { 'Blue on White 1', 'Yellow on Black', 'Yellow on Blue', 'Blue on White 2', 'Blue on White 3', 'North Yankton' }
 local xenonNames = { 'Stock', 'White', 'Blue', 'Electric Blue', 'Mint Green', 'Lime Green', 'Yellow', 'Golden Shower', 'Orange', 'Red', 'Pony Pink', 'Hot Pink', 'Purple', 'Blacklight' }
 
@@ -103,12 +105,13 @@ end
 
 -- The game only lets a horn sound briefly, like a tap, while a player is in
 -- the driver seat: StartVehicleHorn and SetHornPermanentlyOnTime both ignore
--- their duration then. The shop keeps the player in that seat, so a preview on
--- the player's own vehicle was always cut off after a moment and the musical
--- horns, which take a moment to load, were often not heard at all. A preview
--- therefore sounds from a stand-in (Config.hornPreview.method):
---   proxy  a hidden local copy of the vehicle, the same horn fitted, nobody in it
---   input  the horn key held for the preview, as if the player held it
+-- their duration then. The shop keeps the player in that seat, so a preview
+-- is sounded another way (Config.hornPreview.method):
+--   input  the player's own vehicle: started once, then the horn key held for
+--          the preview, as if the player held it (the driver's horn stays on
+--          while its key is down)
+--   proxy  a hidden local copy of the vehicle, the same horn fitted, nobody in
+--          it. Testers heard nothing from it, so it is no longer the default
 -- Each preview starts once and is cut when the next one starts, so it never
 -- loops or overlaps.
 local hornToken, hornProxy = 0, nil
@@ -120,7 +123,7 @@ local function hornMode()
 end
 
 local function hornMethod()
-    return Config.hornPreview and Config.hornPreview.method == 'input' and 'input' or 'proxy'
+    return Config.hornPreview and Config.hornPreview.method == 'proxy' and 'proxy' or 'input'
 end
 
 local function removeHornProxy(proxy)
@@ -163,9 +166,12 @@ local function soundOnProxy(token, vehicle, horn, duration)
     SetTimeout(duration + 250, function() removeHornProxy(proxy) end)
 end
 
--- Runs only while one preview sounds, and ends with it.
-local function holdHornKey(token, duration)
+-- Runs only while one preview sounds, and ends with it. The horn is started
+-- once straight away so it is heard even where the held key is not; the held
+-- key then keeps it going for the whole preview.
+local function holdHornKey(token, vehicle, duration)
     local untilAt = GetGameTimer() + duration
+    StartVehicleHorn(vehicle, duration, hornMode(), false)
     CreateThread(function()
         while token == hornToken and GetGameTimer() < untilAt do
             SetControlNormal(0, HORN_CONTROL, 1.0)
@@ -194,7 +200,7 @@ local function playHorn(duration)
         if token ~= hornToken or not active or active.vehicle ~= vehicle or not DoesEntityExist(vehicle) then return end
         local horn = GetVehicleMod(vehicle, HORN_SLOT)
         duration = duration and math.max(100, duration) or hornLength(vehicle)
-        if hornMethod() == 'input' then return holdHornKey(token, duration) end
+        if hornMethod() == 'input' then return holdHornKey(token, vehicle, duration) end
         soundOnProxy(token, vehicle, horn, duration)
     end)
 end
@@ -268,6 +274,15 @@ local function appearanceMatches(vehicle, wanted)
         and sameRgb(now.customSecondary, wanted.customSecondary)
 end
 
+-- Tint -1 is the model's own glass. Set straight over a tint, the game can
+-- take the -1 (and read it back) yet leave the tinted glass on the car, so the
+-- glass is cleared to 0 (none) first; a build that refuses -1 stays on none.
+local function applyTint(vehicle, tint)
+    if tint < 0 then SetVehicleWindowTint(vehicle, 0) end
+    SetVehicleWindowTint(vehicle, tint)
+    if tint < 0 and GetVehicleWindowTint(vehicle) > 0 then SetVehicleWindowTint(vehicle, 0) end
+end
+
 local function applyAppearance(vehicle, wanted)
     ClearVehicleCustomPrimaryColour(vehicle)
     ClearVehicleCustomSecondaryColour(vehicle)
@@ -275,8 +290,7 @@ local function applyAppearance(vehicle, wanted)
     if wanted.customPrimary then SetVehicleCustomPrimaryColour(vehicle, table.unpack(wanted.customPrimary)) end
     if wanted.customSecondary then SetVehicleCustomSecondaryColour(vehicle, table.unpack(wanted.customSecondary)) end
     SetVehicleExtraColours(vehicle, wanted.pearl, wanted.wheel)
-    SetVehicleWindowTint(vehicle, wanted.tint)
-    if wanted.tint < 0 and GetVehicleWindowTint(vehicle) > 0 then SetVehicleWindowTint(vehicle, 0) end
+    applyTint(vehicle, wanted.tint)
 end
 
 local function revertAppearance(vehicle, wanted)
@@ -295,16 +309,66 @@ local function preview(field, value)
     if field == 'color1' or field == 'color2' then
         props.pearlescentColor = currentNumber('pearlescentColor', 0)
         props.wheelColor = currentNumber('wheelColor', 0)
+        -- the game may have moved them too: put back and re-checked with the paint
+        active.touched.pearlescentColor, active.touched.wheelColor = true, true
     end
     active.touched[field] = true
     local ok, err = Kora.vehicle.setProperties(active.vehicle, props)
     if not ok then return notify(err or 'Could not preview that option.', 'error') end
-    -- -1 ("Stock") is not a tint the native always accepts; show it as none.
-    if field == 'windowTint' and value < 0 and GetVehicleWindowTint(active.vehicle) ~= value then
-        SetVehicleWindowTint(active.vehicle, 0)
-    end
+    -- -1 ("Factory") over a tint: clear the glass first (see applyTint)
+    if field == 'windowTint' and value < 0 then applyTint(active.vehicle, value) end
+    active.shown[field] = value
     setPending(field, value)
     if field == 'modHorns' and Config.hornPreview and Config.hornPreview.autoPlay then playHorn() end
+end
+
+-- Preview guard (Config.previewGuard). A preview left on the car is what the
+-- next session reads as the car's look before any preview, so it could be
+-- stored as its factory look (Config.factoryLook) without being paid for.
+local unpaidPreviews = {} -- [plate] = Customs.rememberUnpaid entry, this client only
+
+local function guardSettings()
+    return type(Config.previewGuard) == 'table' and Config.previewGuard or {}
+end
+
+-- Applies `patch` (field = value) to the car; tint through applyTint.
+local function applyPatch(vehicle, patch)
+    if next(patch) == nil then return end
+    pcall(Kora.vehicle.setProperties, vehicle, patch, { timeout = 2000 })
+    if type(patch.windowTint) == 'number' then applyTint(vehicle, patch.windowTint) end
+end
+
+-- Reads the car again a moment after a revert and puts back any previewed
+-- field the game did not take; a few tries, one timer at a time, and none
+-- once the order was paid or a new session is open on the car.
+local function recheckRevert(session, attempt)
+    local settings = guardSettings()
+    local delay = math.floor(tonumber(settings.recheckMs) or 500)
+    if delay <= 0 or attempt > math.floor(tonumber(settings.attempts) or 3) then return end
+    SetTimeout(delay, function()
+        local vehicle = session.vehicle
+        if session.paid or not DoesEntityExist(vehicle) or (active and active.vehicle == vehicle) then return end
+        local current = Kora.vehicle.getProperties(vehicle)
+        local patch = Customs.previewDrift(current, session.original, session.touched)
+        if next(patch) == nil then return end
+        if Config.debug then Kora.print.debug('kora_customs: a preview stayed on the vehicle after the revert; putting it back') end
+        applyPatch(vehicle, patch)
+        recheckRevert(session, attempt + 1)
+    end)
+end
+
+-- Opening on a car that still shows a preview an earlier session did not sell
+-- (the revert did not take, or the client stopped mid-session): put those
+-- fields back before the car is read. Fields showing anything else are left.
+local function putBackUnpaid(vehicle, plate)
+    local entry = plate and unpaidPreviews[plate]
+    if not entry then return end
+    unpaidPreviews[plate] = nil
+    if guardSettings().reapplyOnOpen == false then return end
+    local patch = Customs.stuckPreviews(Kora.vehicle.getProperties(vehicle), entry)
+    if next(patch) == nil then return end
+    if Config.debug then Kora.print.debug('kora_customs: unpaid previews were still on the vehicle; put back') end
+    applyPatch(vehicle, patch)
 end
 
 -- Puts the vehicle back as it was when the shop opened. Every way out of a
@@ -315,6 +379,9 @@ local function restore()
     stopHorn()
     local session = active
     active = nil
+    if session.plate then
+        unpaidPreviews[session.plate] = Customs.rememberUnpaid(unpaidPreviews[session.plate], session.original, session.shown)
+    end
     local vehicle = session.vehicle
     if not DoesEntityExist(vehicle) then return end
 
@@ -328,6 +395,7 @@ local function restore()
     end
     if session.appearance then revertAppearance(vehicle, session.appearance) end
     FreezeEntityPosition(vehicle, session.wasFrozen)
+    if next(session.touched) then recheckRevert(session, 1) end
 end
 
 local function currentBool(field)
@@ -947,6 +1015,10 @@ local function checkout()
             return notify(result or 'Purchase failed.', 'error')
         end
 
+        -- paid: no revert re-check may undo it, and no earlier preview is
+        -- put back over it
+        session.paid = true
+        if session.plate then unpaidPreviews[session.plate] = nil end
         if active == session then
             active = nil
             FreezeEntityPosition(session.vehicle, session.wasFrozen)
@@ -1053,15 +1125,19 @@ local function open(shopId)
     if not netId or netId == 0 then return notify('This vehicle is not networked.', 'error') end
 
     SetVehicleModKit(vehicle, 0)
+    local plate = Kora.vehicle.plate(vehicle) or nil
+    putBackUnpaid(vehicle, plate)
     local original, err = Kora.vehicle.getProperties(vehicle)
     if not original then return notify(err or 'Could not read this vehicle.', 'error') end
     local session = {
         shopId = shopId,
         label = shop.label,
         vehicle = vehicle,
+        plate = plate,
         original = original,
         pending = {},
         touched = {},
+        shown = {}, -- last previewed value per field (Config.previewGuard)
         appearance = readAppearance(vehicle),
         wasFrozen = type(IsEntityPositionFrozen) == 'function' and IsEntityPositionFrozen(vehicle) or false,
     }

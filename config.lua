@@ -167,11 +167,12 @@ Config.camera = {
 --   method        how the preview is sounded. The game only gives a horn a short
 --                 tap while a player sits in the driver seat (StartVehicleHorn
 --                 ignores its duration then), and the shop keeps the player there:
+--                 'input'  (default) the player's own vehicle: the horn is started,
+--                          then its key (control 86) is held for the preview, as
+--                          if the player held it; players nearby hear it too
 --                 'proxy'  a hidden, local copy of the vehicle with the same horn
---                          fitted and nobody in it sounds the horn for the full
---                          time; only this player hears it
---                 'input'  holds the horn key (control 86) for the preview, as if
---                          the player held it; the whole server hears it
+--                          fitted and nobody in it; only this player would hear
+--                          it, but testers heard nothing from it at all
 --   durationMs    how long a horn sounds when no rule below names it (plain horns:
 --                 truck, cop, clown, air horns, the scale notes)
 --   durations     { match = text or list, ms = length }: the first rule whose text
@@ -201,7 +202,7 @@ Config.camera = {
 Config.hornPreview = {
     autoPlay = true,
     button = true,
-    method = 'proxy',
+    method = 'input',
     durationMs = 1500,
     durations = {
         { match = 'loop', ms = 6000 },
@@ -232,6 +233,25 @@ Config.hornPreview = {
 Config.factoryLook = {
     enabled = true,
     fillMissing = true,
+}
+
+-- Preview guard. Every way out of a session that is not a purchase (Discard,
+-- Escape, leaving the seat or the shop, dying) puts the previewed fields back.
+-- A preview the game did not take back would stay on the car, and the next
+-- session would read it as the car's look before any preview (and could store
+-- it as the factory look above) without it being paid for.
+--   recheckMs      read the car again this long after a revert and put back any
+--                  previewed field that still differs; 0 = no re-check
+--   attempts       how many re-checks at most (each one only if the last fixed something)
+--   reapplyOnOpen  remember the fields previewed in a session that ended unpaid;
+--                  if the car still shows one of those previews when the shop
+--                  opens on it again, put the earlier value back before the car
+--                  is read. Per player, until they reconnect; a field showing
+--                  anything else (bought since, changed elsewhere) is left alone
+Config.previewGuard = {
+    recheckMs = 500,
+    attempts = 3,
+    reapplyOnOpen = true,
 }
 
 -- Self-service repair at the shop zones, for when no mechanic is around.

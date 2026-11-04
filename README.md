@@ -70,6 +70,17 @@ not a completed purchase (Escape, X, Discard changes, a failed or refused
 checkout, leaving the seat or the shop, dying, the vehicle disappearing,
 resource stop) puts the original properties back, including paint, pearlescent,
 custom RGB and window tint, and checks that paint and tint really came back.
+Factory window glass (tint -1) is put back over cleared glass (tint 0 first),
+because the game can take a bare -1 and still show the previewed tint.
+`Config.previewGuard` backs this up: `recheckMs` (500) after a revert the car is
+read again and any previewed field that still differs is put back (up to
+`attempts`, 3); with `reapplyOnOpen` (default) the client remembers the fields
+previewed in a session that ended unpaid, and if the car still shows one of
+those previews when the shop next opens on it, the earlier value goes back on
+before the car is read (so it cannot become the factory look below). A field
+showing anything else, or one bought since, is left alone.
+The window tint row lists every tint in the game's order: Factory (-1), None,
+Pure Black, Dark Smoke, Light Smoke, Stock, Limo, Green (0 to 6).
 Paint has a price per category in `Config.prices`: `primaryPaint`,
 `secondaryPaint`, `customPrimary`, `customSecondary` (custom RGB),
 `pearlescent`, `wheelPaint` and `windowTint`. A key left out falls back to
@@ -115,11 +126,12 @@ plays the whole horn once (`clickPlaysFull = true`, default; `false` stops it
 on release). Hold to test needs a kora_lib app shell with `hold` actions; older
 shells show a plain button that plays the horn once.
 GTA only taps a horn while a player sits in the driver seat (`StartVehicleHorn`
-ignores its duration then), and the shop keeps the player there, so the preview
-does not sound the player's own vehicle. With `method = 'proxy'` (default) it
-sounds from a hidden, local copy of the vehicle with the same horn fitted and
-nobody in it, which only this player hears; `method = 'input'` holds the horn
-key for the preview instead. The length comes from `byIndex[horn index]`, then
+ignores its duration then), and the shop keeps the player there. With
+`method = 'input'` (default) the preview starts the horn on the player's own
+vehicle and holds its key (control 86) for the preview length, as a player
+holding the horn would, so nearby players hear it too. `method = 'proxy'`
+sounds a hidden, local copy of the vehicle with nobody in it instead; testers
+heard nothing from it, so it is no longer the default. The length comes from `byIndex[horn index]`, then
 the first `durations` rule whose `match` text is in the horn's name (musical
 horns 5 s, loop horns one 6 s pass), then `durationMs` (1.5 s, plain horns).
 The rules match the English names; translate them for other game languages.

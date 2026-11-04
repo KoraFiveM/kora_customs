@@ -7,7 +7,7 @@ assert(type(h.holdToTest) == "boolean", "holdToTest is a documented boolean")
 assert(h.holdToTest == false and h.holdKey == false,
     "Test horn plays once per click by default (hold to test is the opt-in); no key is bound unless asked")
 assert(h.maxHoldMs >= 500, "maxHoldMs is a sane cap")
-assert(h.method == "proxy", "the preview sounds from a stand-in with nobody in the driver seat by default")
+assert(h.method == "input", "the preview holds the horn on the player's own vehicle by default (the stand-in was silent)")
 assert(h.durationMs >= 500 and h.durationMs <= 3000, "a plain horn sounds like a short press")
 assert(h.startDelayMs >= 0 and h.startDelayMs <= 1000, "start delay is short")
 assert(h.mode == "HELDDOWN" or h.mode == "NORMAL", "mode is a StartVehicleHorn mode")
@@ -30,16 +30,24 @@ assert(Customs.hornDuration(nil, 1, "Truck Horn") == 1500, "works without a conf
 assert(Customs.hornDuration({ durationMs = "bad", durations = { { match = "", ms = 9 } } }, 1, "x") == 1500,
     "bad values fall back")
 
--- The game only taps a horn while a player sits in the driver seat, so the
--- preview must never sound the player's own vehicle, and must sound once
--- per press: a timer that re-triggers StartVehicleHorn loops the first fraction.
+-- The game only taps a horn while a player sits in the driver seat, so on the
+-- player's own vehicle the horn key is held for the preview; and a preview
+-- sounds once per press: a timer that re-triggers StartVehicleHorn loops the
+-- first fraction. One StartVehicleHorn per method, none in a loop.
 local source = assert(io.open("client/main.lua")):read("a")
-local calls = 0
-for args in source:gmatch("StartVehicleHorn%(([^,]*),") do
-    calls = calls + 1
-    assert(args == "proxy", "StartVehicleHorn only sounds the proxy, got " .. args)
-end
-assert(calls == 1, "one StartVehicleHorn per preview")
+local sounded = {}
+for args in source:gmatch("StartVehicleHorn%(([^,]*),") do sounded[#sounded + 1] = args end
+table.sort(sounded)
+assert(#sounded == 2 and sounded[1] == "proxy" and sounded[2] == "vehicle",
+    "StartVehicleHorn once on the proxy and once on the player's vehicle, got " .. table.concat(sounded, ","))
+assert(source:find("return Config.hornPreview and Config.hornPreview.method == 'proxy' and 'proxy' or 'input'", 1, true),
+    "any method but 'proxy' (or none) holds the horn on the player's vehicle")
+local keyBody = assert(source:match("local function holdHornKey%(token, vehicle, duration%)(.-)\nend"), "holdHornKey exists")
+local beforeLoop = assert(keyBody:match("^(.-)CreateThread"), "holdHornKey starts its thread")
+assert(beforeLoop:find("StartVehicleHorn(vehicle, duration", 1, true), "the horn is started once, before the key loop")
+local loop = assert(keyBody:match("while (.-)\n%s*end"), "holdHornKey holds the key in a loop")
+assert(loop:find("token == hornToken", 1, true) and loop:find("untilAt", 1, true) and loop:find("SetControlNormal(0, HORN_CONTROL, 1.0)", 1, true)
+    and not loop:find("StartVehicleHorn", 1, true), "the key loop only holds the key, for this preview's length, until a stop")
 assert(not source:find("SetHornPermanentlyOn%w*%("), "no horn native that the driver seat cuts short")
 assert(not source:find("hornHold", 1, true), "no re-triggering hold loop")
 

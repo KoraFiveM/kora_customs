@@ -290,6 +290,74 @@ function Customs.missingLook(stored, look)
     return missing
 end
 
+-- Whether a field read off the car shows `wanted`. Window tint -1 (the model's
+-- own glass) can read back as 0 (none) after it is put back, so those match.
+---@param field string
+---@param current any
+---@param wanted any
+---@return boolean
+function Customs.showsValue(field, current, wanted)
+    if field == 'windowTint' and type(wanted) == 'number' and wanted < 0 then
+        return type(current) == 'number' and current <= 0
+    end
+    return Customs.equal(current, wanted)
+end
+
+-- The `fields` (a set) whose value on the car (`current`, a property snapshot)
+-- is not the one in `wanted`, with the wanted value: what a revert must apply again.
+---@param current table
+---@param wanted table
+---@param fields table<string, any>
+---@return table patch
+function Customs.previewDrift(current, wanted, fields)
+    local patch = {}
+    if type(current) ~= 'table' or type(wanted) ~= 'table' or type(fields) ~= 'table' then return patch end
+    for field in pairs(fields) do
+        if wanted[field] ~= nil and not Customs.showsValue(field, current[field], wanted[field]) then
+            patch[field] = clone(wanted[field])
+        end
+    end
+    return patch
+end
+
+-- Records the previews of a session that ended unpaid on `entry` (nil to
+-- start one): per field the value before the first such session and the value
+-- last previewed. `shown` is the session's last previewed value per field.
+---@param entry table|nil { original = {}, preview = {} }
+---@param original table the session's pre-preview snapshot
+---@param shown table
+---@return table|nil entry nil when nothing was previewed
+function Customs.rememberUnpaid(entry, original, shown)
+    if type(original) ~= 'table' or type(shown) ~= 'table' then return entry end
+    for field, value in pairs(shown) do
+        if original[field] ~= nil then
+            entry = entry or { original = {}, preview = {} }
+            if entry.original[field] == nil then entry.original[field] = clone(original[field]) end
+            entry.preview[field] = clone(value)
+        end
+    end
+    return entry
+end
+
+-- The fields of `entry` the car (`current`) still shows the unpaid preview
+-- for, with the value they had before it. A field that shows anything else
+-- (bought since, changed by another resource) is left alone.
+---@param current table
+---@param entry table|nil
+---@return table patch
+function Customs.stuckPreviews(current, entry)
+    local patch = {}
+    if type(current) ~= 'table' or type(entry) ~= 'table' then return patch end
+    for field, preview in pairs(entry.preview or {}) do
+        local original = entry.original and entry.original[field]
+        if original ~= nil and Customs.equal(current[field], preview)
+            and not Customs.showsValue(field, current[field], original) then
+            patch[field] = clone(original)
+        end
+    end
+    return patch
+end
+
 -- On-duty players across the mechanic job names (Config.selfRepair). `count`
 -- returns one job's on-duty count: kora_core on the server, the replicated
 -- GlobalState.OnDuty table on the client.
