@@ -70,8 +70,8 @@ not a completed purchase (Escape, X, Discard changes, a failed or refused
 checkout, leaving the seat or the shop, dying, the vehicle disappearing,
 resource stop) puts the original properties back, including paint, pearlescent,
 custom RGB and window tint, and checks that paint and tint really came back.
-Factory window glass (tint -1) is put back over cleared glass (tint 0 first),
-because the game can take a bare -1 and still show the previewed tint.
+Factory window glass (tint -1) is put back as clear glass (tint 0, None),
+because the game can take a -1 and still show the previewed tint.
 `Config.previewGuard` backs this up: `recheckMs` (500) after a revert the car is
 read again and any previewed field that still differs is put back (up to
 `attempts`, 3); with `reapplyOnOpen` (default) the client remembers the fields
@@ -133,7 +133,7 @@ holding the horn would, so nearby players hear it too. `method = 'proxy'`
 sounds a hidden, local copy of the vehicle with nobody in it instead; testers
 heard nothing from it, so it is no longer the default. The length comes from `byIndex[horn index]`, then
 the first `durations` rule whose `match` text is in the horn's name (musical
-horns 5 s, loop horns one 6 s pass), then `durationMs` (1.5 s, plain horns).
+horns 8 s, loop horns 10 s), then `durationMs` (3 s, plain horns).
 The rules match the English names; translate them for other game languages.
 `holdKey` (off by default, needs `holdToTest`) maps a key that holds the horn
 the same way; the game only sees that key while the panel is hidden. Set autoPlay/button to `false` to

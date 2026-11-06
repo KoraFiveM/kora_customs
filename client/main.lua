@@ -274,13 +274,12 @@ local function appearanceMatches(vehicle, wanted)
         and sameRgb(now.customSecondary, wanted.customSecondary)
 end
 
--- Tint -1 is the model's own glass. Set straight over a tint, the game can
--- take the -1 (and read it back) yet leave the tinted glass on the car, so the
--- glass is cleared to 0 (none) first; a build that refuses -1 stays on none.
+-- Tint -1 is the model's own glass. Set over a tint, the game takes the -1
+-- (and reads it back) yet leaves the tinted glass on the car, even right after
+-- a 0 in the same frame, so -1 is never set: factory glass is applied as 0
+-- (none), the same clear glass, which Customs.showsValue counts as factory.
 local function applyTint(vehicle, tint)
-    if tint < 0 then SetVehicleWindowTint(vehicle, 0) end
-    SetVehicleWindowTint(vehicle, tint)
-    if tint < 0 and GetVehicleWindowTint(vehicle) > 0 then SetVehicleWindowTint(vehicle, 0) end
+    SetVehicleWindowTint(vehicle, tint < 0 and 0 or tint)
 end
 
 local function applyAppearance(vehicle, wanted)

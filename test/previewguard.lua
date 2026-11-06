@@ -52,9 +52,9 @@ assert(previewBody:find("active.shown[field] = value", 1, true), "previews are r
 assert(previewBody:find("active.touched.pearlescentColor, active.touched.wheelColor = true, true", 1, true),
     "paint previews put back and re-check pearlescent and wheel colour")
 
--- Factory tint (-1) is applied over cleared glass, in previews and reverts.
+-- Factory tint (-1) goes on as clear glass (0): a bare -1 leaves the tint showing.
 local tint = body("applyTint%(vehicle, tint%)")
-local clear, set = tint:find("if tint < 0 then SetVehicleWindowTint(vehicle, 0) end", 1, true), tint:find("SetVehicleWindowTint(vehicle, tint)", 1, true)
-assert(clear and set and clear < set, "the glass is cleared before -1 is set")
+assert(tint:find("SetVehicleWindowTint(vehicle, tint < 0 and 0 or tint)", 1, true)
+    and not tint:find("SetVehicleWindowTint(vehicle, tint)", 1, true), "-1 is applied as none (0), never set bare")
 assert(body("applyAppearance%(vehicle, wanted%)"):find("applyTint(vehicle, wanted.tint)", 1, true), "reverts use applyTint")
 print("kora_customs preview guard: ok")
