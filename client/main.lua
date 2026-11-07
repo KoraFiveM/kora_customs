@@ -1379,12 +1379,13 @@ if Config.hornPreview and Config.hornPreview.holdKey then
 end
 
 exports('open', open)
-RegisterCommand('getVehprop', function()
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    if not vehicle or vehicle == 0 then
-        print('No vehicle found')
-        return
-    end
-    local props = Kora.vehicle.getProperties(vehicle)
-    Kora.print.debug(props)
-end)
+if Config.debug then
+    RegisterCommand('getVehprop', function()
+        local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+        if not vehicle or vehicle == 0 then
+            Kora.print.debug('kora_customs: no vehicle found')
+            return
+        end
+        Kora.print.debug(Kora.vehicle.getProperties(vehicle))
+    end)
+end
