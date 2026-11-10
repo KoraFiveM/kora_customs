@@ -1,5 +1,5 @@
 local owner = GetCurrentResourceName()
-local APP_ID = 'qbcustoms:shop'
+local APP_ID = 'kora_customs:shop'
 local active
 local repairing = false -- a self-service repair (Config.selfRepair) is running
 
@@ -991,7 +991,7 @@ local function checkout()
         end
 
         local netId = NetworkGetNetworkIdFromEntity(session.vehicle)
-        local quoted, quote = Kora.callback.trigger('qbcustoms:quote', session.shopId, netId, session.pending)
+        local quoted, quote = Kora.callback.trigger('kora_customs:quote', session.shopId, netId, session.pending)
         if active ~= session then return end
         if not quoted then return abort(quote or 'Could not quote these changes; previews were reverted.') end
 
@@ -1007,7 +1007,7 @@ local function checkout()
         end
 
         local purchased, result = Kora.callback.trigger(
-            'qbcustoms:purchase', session.shopId, netId, session.pending, quote.price, Kora.vehicle.getProperties(session.vehicle)
+            'kora_customs:purchase', session.shopId, netId, session.pending, quote.price, Kora.vehicle.getProperties(session.vehicle)
         )
         if not purchased then
             if active == session then return abort(result or 'Purchase failed; preview changes were reverted.') end

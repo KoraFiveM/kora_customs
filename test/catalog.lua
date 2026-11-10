@@ -146,4 +146,4 @@ equal(count, Customs.rules.windowTint.max - Customs.rules.windowTint.min + 1, 'o
 assert(names:find("'None', 'Pure Black', 'Dark Smoke', 'Light Smoke', 'Stock', 'Limo', 'Green'", 1, true),
     'names follow the native order: 0 none, 1 pure black ... 6 green')
 
-print('qbcustoms catalog: ok')
+print('kora_customs catalog: ok')

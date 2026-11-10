@@ -14,7 +14,7 @@ optional paid self-service fallback for when no mechanic is on duty
   interior colours, tint, plates, horns, xenon, neon, tyre smoke, and extras.
 - Server-authoritative ownership, driver-seat, entity, plate, model, location,
   routing-bucket, field allow-list, and price validation.
-- Cosmetic persistence through `qbcore:saveVehicleProperties`; the resource
+- Cosmetic persistence through `kora_core:saveVehicleProperties`; the resource
   never writes `player_vehicles` directly.
 - `provide 'qb-customs'` for dependency compatibility. A real `qb-customs`
   resource must not run alongside this one.

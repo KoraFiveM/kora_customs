@@ -88,8 +88,8 @@ joaat = function() return 100 end
 AddEventHandler = function() end
 GetGameTimer = function() return 0 end
 dofile('server/main.lua')
-local quote = handlers['qbcustoms:quote']
-local purchase = handlers['qbcustoms:purchase']
+local quote = handlers['kora_customs:quote']
+local purchase = handlers['kora_customs:purchase']
 assert(type(quote) == 'function' and type(purchase) == 'function', 'shop callbacks registered')
 
 local configuredBucket = Config.shops.bennys.bucket
@@ -295,4 +295,4 @@ saveSucceeds = true
 ok, result = factoryLook(1, 'bennys', 99, snapshot)
 assert(ok == true and result.stored == true, 'a failed save does not use up the one baseline')
 
-print('qbcustoms server: ok')
+print('kora_customs server: ok')

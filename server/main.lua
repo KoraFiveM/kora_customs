@@ -11,7 +11,7 @@ local function core(name, ...)
     local ok, first, second = pcall(function()
         return exports.kora_core[name](exports.kora_core, table.unpack(args))
     end)
-    if not ok then return nil, 'qbcore is unavailable' end
+    if not ok then return nil, 'kora_core is unavailable' end
     return first, second
 end
 
@@ -99,14 +99,14 @@ local function prepare(src, shopId, netId, requestedPatch)
     return { row = row, patch = patch, price = price }
 end
 
-Kora.callback.register('qbcustoms:quote', function(src, shopId, netId, requestedPatch)
+Kora.callback.register('kora_customs:quote', function(src, shopId, netId, requestedPatch)
     local prepared, err = prepare(src, shopId, netId, requestedPatch)
     if not prepared then return false, err end
     return true, { price = prepared.price, plate = prepared.row.plate }
 end, { rateLimit = { max = 8, window = 10000 } })
 
 -- Keep the extra client argument compatible; only the validated patch reaches persistence.
-Kora.callback.register('qbcustoms:purchase', function(src, shopId, netId, requestedPatch, quotedPrice, mods)
+Kora.callback.register('kora_customs:purchase', function(src, shopId, netId, requestedPatch, quotedPrice, mods)
     local prepared, prepareErr = prepare(src, shopId, netId, requestedPatch)
     if not prepared then return false, prepareErr end
     local row, patch, price = prepared.row, prepared.patch, prepared.price
@@ -211,6 +211,8 @@ end, { rateLimit = { max = 4, window = 10000 } })
 -- opens a ticket; repairFinish, once the progress bar has had time to run,
 -- checks it all again, charges, and lets the client fix the vehicle.
 local repairTickets, repairCooldowns = {}, {}
+-- FFT seam (approved): lets fft_hooks_server.lua clear one repair cooldown.
+function Customs._fftResetRepair(key) repairCooldowns[key] = nil end
 
 local function repairSettings()
     return type(Config.selfRepair) == 'table' and Config.selfRepair or {}

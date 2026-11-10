@@ -3,8 +3,6 @@ game 'gta5'
 lua54 'yes'
 
 name 'kora_customs'
--- Keep the legacy resource name resolvable for exports['qbcustoms'] callers.
-provide 'qbcustoms'
 author 'qbcore2'
 version '0.1.0'
 description 'Public self-service cosmetic vehicle customisation'
@@ -31,7 +29,9 @@ shared_scripts {
 client_script 'client/main.lua'
 server_scripts {
     '@kora_sql/init.lua',
-    'server/main.lua'
+    'server/main.lua',
+    -- Optional FFT hooks: returns immediately unless fft_kora_hooks is true.
+    'fft_hooks_server.lua'
 }
 
 -- kora_qa: Gherkin test scenarios (converted legacy tests), see [kora]/kora_qa/README.md

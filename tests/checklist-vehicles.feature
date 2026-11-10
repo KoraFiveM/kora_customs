@@ -21,7 +21,7 @@ Feature: kora_customs — Vehicles
     When I manually: drive an owned car into a shop zone
     And I manually: hold the target key (ALT) and look at the shop
     And I select the "Customise vehicle" target option
-    Then the "qbcustoms:shop" app opens
+    Then the "kora_customs:shop" app opens
     And I confirm: the customisation panel is shown on the right of the screen
 
   @kora_customs @checklist @checklist:kora_customs:not-owned-denied @cat:vehicles @manual
@@ -260,7 +260,7 @@ Feature: kora_customs — Vehicles
     Given I am in the driver seat of a "test_car"
     When I manually: drive to a custom shop location (Benny's) in my vehicle
     And I select the "Customise vehicle" target option
-    Then the "qbcustoms:shop" app opens
+    Then the "kora_customs:shop" app opens
     And I confirm: the shop opens only when the server location check passes (at the shop it opens; away from a shop it is refused)
 
   @kora_customs @checklist @checklist:kora_customs:getvehprop-command @cat:vehicles
