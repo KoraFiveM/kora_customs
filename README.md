@@ -181,3 +181,5 @@ distance and routing-bucket policy.
 ```sh
 ./test/run.sh
 ```
+
+Full documentation: see [docs/](docs/index.md).
