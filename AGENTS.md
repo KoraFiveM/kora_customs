@@ -33,6 +33,8 @@ Pure validation, pricing, diff, and merge behavior lives in
 
 User-facing documentation lives in `docs/` (Markdown, published via the Kora Docusaurus site, kora_docs_next). Read `docs/index.md` first for an overview of features, configuration, commands, exports, events and database usage.
 
+Docs layout: `docs/index.md` (overview, features, documentation map), `docs/installation.md` (install steps, manifest, dependencies, compatibility), `docs/how-to-use.md` (player flow, checkout validation, catalog, rollback, repair, camera, horn), `docs/commands.md` (commands, permissions), `docs/api/` (`index.md` and `customs-api.md` for the client export), and topic pages `configuration.md`, `events.md` (callbacks and events), `database.md`, `ui.md`, `troubleshooting.md`, `development.md`. Update the page that owns the topic; do not add a duplicate page.
+
 When you add, change, or remove a feature, config option, command, export, event, item, permission, or database table/column, update the matching page in `docs/` in the same change. Keep docs accurate to the code; do not document behaviour that does not exist.
 
 Docs rules: plain Markdown with `title`/`sidebar_position` front matter (no `id`/`slug`), relative links only between docs pages, assets inside `docs/`, fenced code blocks with a language, and no raw `<`, `>`, `{`, `}` outside code (pages are parsed as MDX). The release version comes from `fxmanifest.lua`'s `version` field.

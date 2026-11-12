@@ -23,11 +23,14 @@ Current version: see `version` in `fxmanifest.lua`.
 
 Access has no job check. Access is decided by being at a shop, sitting in the driver seat and owning the vehicle.
 
-## Pages
+## Documentation map
 
-- [Installation](./installation.md) - dependencies, installation, compatibility.
+- [Installation](./installation.md) - install steps, manifest, dependencies and compatibility notes.
+- [How to use](./how-to-use.md) - the player flow, checkout validation, catalog rules, rollback, repair, camera and horn.
+- [Commands](./commands.md) - debug and horn commands, permissions.
+- [API reference](./api/index.md) - module overview.
+  - [Client export](./api/customs-api.md) - the `open` export.
 - [Configuration](./configuration.md) - every `Config` table and option, and the price table.
-- [Exports and commands](./api.md) - the `open` export and the commands.
 - [Events and callbacks](./events.md) - server callbacks and the events the resource uses.
 - [Database](./database.md) - how vehicle data is read and written.
 - [UI](./ui.md) - the shop panel, tabs, camera, preview rules.
