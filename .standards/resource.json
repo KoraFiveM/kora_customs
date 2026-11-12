@@ -1,0 +1,52 @@
+{
+  "resource": "kora_customs",
+  "standardsRevision": "2026-11-12.1",
+  "realms": {
+    "client": [
+      "client/main.lua"
+    ],
+    "server": [
+      "fft_hooks_server.lua",
+      "server/main.lua"
+    ],
+    "shared": [
+      "config.lua",
+      "shared/camera.lua",
+      "shared/catalog.lua",
+      "shared/horn.lua"
+    ],
+    "manifest": [
+      "fxmanifest.lua"
+    ],
+    "test": [
+      "test/camera.lua",
+      "test/catalog.lua",
+      "test/hornconfig.lua",
+      "test/pauseconfig.lua",
+      "test/previewguard.lua",
+      "test/selfrepair.lua",
+      "test/server.lua"
+    ]
+  },
+  "exclude": [
+    ".git/*",
+    ".github/*",
+    ".standards/*",
+    "node_modules/*",
+    "**/node_modules/*",
+    "vendor/*",
+    "**/vendor/*",
+    "web/*",
+    "ui/*",
+    "html/*",
+    "dist/*",
+    "artifacts/*",
+    "runtime/*",
+    "txData/*",
+    "storage/*",
+    "stream/*",
+    "docs/*",
+    "__pycache__/*",
+    "modules/lookup/data/*"
+  ]
+}
