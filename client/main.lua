@@ -4,39 +4,31 @@ local active
 local repairing = false -- a self-service repair (Config.selfRepair) is running
 
 local wheelTypes = {
-    'Sport', 'Muscle', 'Lowrider', 'SUV', 'Offroad', 'Tuner', 'Bike',
-    'High End', "Benny's Original", "Benny's Bespoke", 'Open Wheel', 'Street', 'Track',
+    Kora.lang('option.sport'), Kora.lang('option.muscle'), Kora.lang('option.lowrider'), Kora.lang('option.suv'),
+    Kora.lang('option.offroad'), Kora.lang('option.tuner'), Kora.lang('option.bike'), Kora.lang('option.high_end'),
+    Kora.lang('option.bennys_original'), Kora.lang('option.bennys_bespoke'), Kora.lang('option.open_wheel'),
+    Kora.lang('option.street'), Kora.lang('option.track'),
 }
 -- Window tint -1 .. 6: -1 is the model's own glass, then the game's tints in
 -- SET_VEHICLE_WINDOW_TINT order (0 none, 1 pure black ... 4 stock, 5 limo, 6 green).
-local tintNames = { 'Factory', 'None', 'Pure Black', 'Dark Smoke', 'Light Smoke', 'Stock', 'Limo', 'Green' }
-local plateNames = { 'Blue on White 1', 'Yellow on Black', 'Yellow on Blue', 'Blue on White 2', 'Blue on White 3', 'North Yankton' }
-local xenonNames = { 'Stock', 'White', 'Blue', 'Electric Blue', 'Mint Green', 'Lime Green', 'Yellow', 'Golden Shower', 'Orange', 'Red', 'Pony Pink', 'Hot Pink', 'Purple', 'Blacklight' }
+local tintNames = { Kora.lang('option.factory'), Kora.lang('option.none'), Kora.lang('option.pure_black'), Kora.lang('option.dark_smoke'), Kora.lang('option.light_smoke'), Kora.lang('option.stock'), Kora.lang('option.limo'), Kora.lang('option.green') }
+local plateNames = { Kora.lang('option.blue_white_1'), Kora.lang('option.yellow_black'), Kora.lang('option.yellow_blue'), Kora.lang('option.blue_white_2'), Kora.lang('option.blue_white_3'), Kora.lang('option.north_yankton') }
+local xenonNames = { Kora.lang('option.stock'), Kora.lang('option.white'), Kora.lang('option.blue'), Kora.lang('option.electric_blue'), Kora.lang('option.mint_green'), Kora.lang('option.lime_green'), Kora.lang('option.yellow'), Kora.lang('option.golden_shower'), Kora.lang('option.orange'), Kora.lang('option.red'), Kora.lang('option.pony_pink'), Kora.lang('option.hot_pink'), Kora.lang('option.purple'), Kora.lang('option.blacklight') }
 
-local fieldLabels = {
-    color1 = 'Primary paint',
-    color2 = 'Secondary paint',
-    pearlescentColor = 'Pearlescent colour',
-    wheelColor = 'Wheel colour',
-    dashboardColor = 'Dashboard colour',
-    interiorColor = 'Interior colour',
-    wheels = 'Wheel category',
-    windowTint = 'Window tint',
-    plateIndex = 'Plate style',
-    xenonColor = 'Xenon colour',
-    modXenon = 'Xenon headlights',
-    neonEnabled = 'Neon underglow',
-    neonColor = 'Neon colour',
-    tyreSmokeColor = 'Tyre-smoke colour',
-    modSmokeEnabled = 'Tyre smoke',
-    modCustomTiresF = 'Custom front tyres',
-    modCustomTiresR = 'Custom rear tyres',
-    extras = 'Vehicle extras',
-}
-for _, definition in ipairs(Customs.modFields) do fieldLabels[definition.field] = definition.label end
+local fieldLabels = {}
+for _, definition in ipairs(Customs.modFields) do
+    fieldLabels[definition.field] = Kora.lang('field.' .. definition.field)
+end
+for _, field in ipairs({
+    'color1', 'color2', 'pearlescentColor', 'wheelColor', 'dashboardColor', 'interiorColor', 'wheels',
+    'windowTint', 'plateIndex', 'xenonColor', 'modXenon', 'neonEnabled', 'neonColor', 'tyreSmokeColor',
+    'modSmokeEnabled', 'modCustomTiresF', 'modCustomTiresR', 'extras',
+}) do
+    fieldLabels[field] = Kora.lang('field.' .. field)
+end
 
 local function notify(message, kind)
-    Kora.notify.send({ title = 'Custom Shop', message = message, type = kind or 'info' })
+    Kora.notify.send({ title = Kora.lang('title'), message = message, type = kind or 'info' })
 end
 
 local function dollars(value)
@@ -62,7 +54,7 @@ local function localizedModName(vehicle, slot, index)
         local label = GetLabelText(key)
         if label and label ~= '' and label ~= 'NULL' then return label end
     end
-    return ('Option %d'):format(index + 1)
+    return Kora.lang('option.item', index + 1)
 end
 
 local function indexedValue(value, index)
@@ -313,7 +305,7 @@ local function preview(field, value)
     end
     active.touched[field] = true
     local ok, err = Kora.vehicle.setProperties(active.vehicle, props)
-    if not ok then return notify(err or 'Could not preview that option.', 'error') end
+    if not ok then return notify(err or Kora.lang('error.preview'), 'error') end
     -- -1 ("Factory") over a tint: clear the glass first (see applyTint)
     if field == 'windowTint' and value < 0 then applyTint(active.vehicle, value) end
     active.shown[field] = value
@@ -422,7 +414,7 @@ local function changeRows()
             for _ in pairs(value) do count = count + 1 end
             label = ('%s (%d)'):format(label, count)
         elseif (field == 'color1' or field == 'color2') and type(value) == 'table' then
-            label = label .. ' (custom RGB)'
+            label = label .. Kora.lang('text.custom_rgb')
         end
         rows[#rows + 1] = { change = label, price = dollars(Customs.price({ [field] = value })) }
     end
@@ -440,7 +432,7 @@ local function scalarItem(field, price, minimum, current, names, maximum)
 
     local label = fieldLabels[field]
     local changed = active.pending[field] ~= nil
-    local valueName = names and names[current - minimum + 1] or ('Colour %d'):format(current)
+    local valueName = names and names[current - minimum + 1] or Kora.lang('option.colour', current)
 
     local chooser
     if names then
@@ -457,23 +449,23 @@ local function scalarItem(field, price, minimum, current, names, maximum)
     local compact = Config.ui and Config.ui.compactActions
     active.specs[field] = { minimum = minimum, last = last, current = current }
     local actions = {
-        { id = ('step:%s:-1'):format(field), label = compact and 'Prev' or 'Previous', icon = 'ChevronLeft', variant = 'outline' },
-        { id = ('step:%s:1'):format(field), label = 'Next', icon = 'ChevronRight', variant = 'outline' },
-        { id = 'set:' .. field, label = compact and 'Pick' or 'Choose', icon = 'List', variant = 'ghost', fields = { chooser } },
+        { id = ('step:%s:-1'):format(field), label = compact and Kora.lang('action.prev') or Kora.lang('action.previous'), icon = 'ChevronLeft', variant = 'outline' },
+        { id = ('step:%s:1'):format(field), label = Kora.lang('action.next'), icon = 'ChevronRight', variant = 'outline' },
+        { id = 'set:' .. field, label = compact and Kora.lang('action.pick') or Kora.lang('action.choose'), icon = 'List', variant = 'ghost', fields = { chooser } },
     }
     if field == 'modHorns' and Config.hornPreview and Config.hornPreview.button then
         -- holdToTest: a press-and-hold button (kora_lib `hold` action); older
         -- kora_lib builds show it as a normal button that plays the horn once.
         local hold = Config.hornPreview.holdToTest == true
         actions[#actions + 1] = {
-            id = 'horn:modHorns', label = hold and 'Hold to test horn' or 'Test horn', icon = 'Music2', variant = 'ghost',
+            id = 'horn:modHorns', label = hold and Kora.lang('action.test_horn_hold') or Kora.lang('action.test_horn'), icon = 'Music2', variant = 'ghost',
             hold = hold or nil,
         }
     end
     return {
         id = field,
         label = label,
-        description = ('%s · %s once%s'):format(valueName, dollars(Customs.unitPrice(field)), changed and ' · changed' or ''),
+        description = Kora.lang('text.once', valueName, dollars(Customs.unitPrice(field)), changed and Kora.lang('text.changed') or ''),
         tone = changed and 'primary' or nil,
         actions = actions,
     }
@@ -485,7 +477,7 @@ local function modItem(definition)
     if definition.slot == 48 then count = math.max(count, GetVehicleLiveryCount(vehicle)) end
     if count <= 0 then return nil end
 
-    local names = { 'Stock' }
+    local names = { Kora.lang('option.stock') }
     for index = 0, count - 1 do names[#names + 1] = localizedModName(vehicle, definition.slot, index) end
     return scalarItem(definition.field, definition.price, -1, currentNumber(definition.field, -1), names)
 end
@@ -501,9 +493,9 @@ local function toggleItem(field, enabled, price)
     return {
         id = field,
         label = fieldLabels[field],
-        description = ('%s once%s'):format(dollars(Customs.unitPrice(field)), changed and ' · changed' or ''),
+        description = Kora.lang('text.once', dollars(Customs.unitPrice(field)), changed and Kora.lang('text.changed') or ''),
         tone = changed and 'primary' or nil,
-        actions = { { id = 'toggle:' .. field, label = enabled and 'Turn off' or 'Turn on', state = enabled } },
+        actions = { { id = 'toggle:' .. field, label = enabled and Kora.lang('action.turn_off') or Kora.lang('action.turn_on'), state = enabled } },
     }
 end
 
@@ -520,11 +512,11 @@ local function rgbItem(field, label)
     return {
         id = 'rgb_' .. field,
         label = label,
-        description = ('%s once%s'):format(dollars(Customs.unitPrice(field, { r = 0, g = 0, b = 0 })), changed and ' · changed' or ''),
+        description = Kora.lang('text.once', dollars(Customs.unitPrice(field, { r = 0, g = 0, b = 0 })), changed and Kora.lang('text.changed') or ''),
         tone = changed and 'primary' or nil,
         actions = { {
             id = 'color:' .. field,
-            label = 'Pick colour',
+            label = Kora.lang('action.pick_colour'),
             icon = 'Palette',
             variant = 'outline',
             fields = { { id = 'color', label = label, type = 'color', default = hex, value = hex, required = true } },
@@ -540,10 +532,10 @@ local function extraItem(id)
     local changed = active.pending.extras ~= nil and active.pending.extras[tostring(id)] ~= nil
     return {
         id = 'extra_' .. id,
-        label = ('Vehicle extra %d'):format(id),
-        description = ('%s each%s'):format(dollars(Customs.unitPrice('extras')), changed and ' · changed' or ''),
+        label = Kora.lang('text.item_extra', id),
+        description = Kora.lang('text.each', dollars(Customs.unitPrice('extras')), changed and Kora.lang('text.changed') or ''),
         tone = changed and 'primary' or nil,
-        actions = { { id = 'extra:' .. id, label = enabled and 'Turn off' or 'Turn on', state = enabled } },
+        actions = { { id = 'extra:' .. id, label = enabled and Kora.lang('action.turn_off') or Kora.lang('action.turn_on'), state = enabled } },
     }
 end
 
@@ -570,17 +562,17 @@ local function buildNavigation()
     session.specs, session.toggles, session.extras = {}, {}, {}
 
     local amount = total()
-    local headerActions = { { id = 'freecam', label = 'Freecam', icon = 'Camera', variant = 'outline' } }
+    local headerActions = { { id = 'freecam', label = Kora.lang('action.freecam'), icon = 'Camera', variant = 'outline' } }
     if not Config.ui or Config.ui.previewButton ~= false then
-        headerActions[#headerActions + 1] = { id = 'hide', label = 'Hide menu', icon = 'ScanSearch', variant = 'outline' }
+        headerActions[#headerActions + 1] = { id = 'hide', label = Kora.lang('action.hide'), icon = 'ScanSearch', variant = 'outline' }
     end
-    headerActions[#headerActions + 1] = { id = 'checkout', label = 'Purchase changes', icon = 'CreditCard', variant = 'primary' }
+    headerActions[#headerActions + 1] = { id = 'checkout', label = Kora.lang('action.purchase_changes'), icon = 'CreditCard', variant = 'primary' }
     headerActions[#headerActions + 1] = {
         id = 'discard',
-        label = 'Discard changes',
+        label = Kora.lang('action.discard_changes'),
         icon = 'X',
         variant = 'outline',
-        confirm = amount > 0 and 'Discard every previewed change and close?' or nil,
+        confirm = amount > 0 and Kora.lang('text.discard_confirmation') or nil,
     }
 
     local function view(id, label, icon, blocks)
@@ -590,8 +582,8 @@ local function buildNavigation()
             icon = icon,
             content = {
                 title = label,
-                description = amount > 0 and ('Pending total: %s'):format(dollars(amount))
-                    or 'Nothing selected yet. Each option shows its price; you pay at Purchase changes.',
+                description = amount > 0 and Kora.lang('text.pending_total', dollars(amount))
+                    or Kora.lang('text.nothing_selected'),
                 actions = headerActions,
                 blocks = blocks,
             },
@@ -639,31 +631,31 @@ local function buildNavigation()
 
     local rows = changeRows()
     local navigation = {
-        view('paint', 'Paint', 'Palette', { section('paint', paint) }),
-        view('body', 'Body', 'Car', { section('body', sectionItems('body'), 'No body options for this vehicle') }),
-        view('wheels', 'Wheels', 'CircleDot', { section('wheels', wheels) }),
-        view('interior', 'Interior', 'Armchair', { section('interior', interior) }),
-        view('lighting', 'Lighting', 'Lightbulb', { section('lighting', lighting) }),
-        view('plate', 'Plate & glass', 'RectangleHorizontal', { section('plate', plate) }),
+        view('paint', Kora.lang('view.paint'), 'Palette', { section('paint', paint) }),
+        view('body', Kora.lang('view.body'), 'Car', { section('body', sectionItems('body'), Kora.lang('text.no_body_options')) }),
+        view('wheels', Kora.lang('view.wheels'), 'CircleDot', { section('wheels', wheels) }),
+        view('interior', Kora.lang('view.interior'), 'Armchair', { section('interior', interior) }),
+        view('lighting', Kora.lang('view.lighting'), 'Lightbulb', { section('lighting', lighting) }),
+        view('plate', Kora.lang('view.plate'), 'RectangleHorizontal', { section('plate', plate) }),
     }
     if #extras > 0 then
-        navigation[#navigation + 1] = view('extras', 'Extras', 'Puzzle', { section('extras', extras) })
+        navigation[#navigation + 1] = view('extras', Kora.lang('view.extras'), 'Puzzle', { section('extras', extras) })
     end
     navigation[#navigation + 1] = view('review', 'Review', 'Receipt', {
         {
             type = 'stats',
             items = {
-                { label = 'Pending total', value = dollars(amount), icon = 'Receipt', tone = amount > 0 and 'primary' or 'neutral' },
-                { label = 'Changes', value = #rows, icon = 'List' },
+                { label = Kora.lang('text.pending_label'), value = dollars(amount), icon = 'Receipt', tone = amount > 0 and 'primary' or 'neutral' },
+                { label = Kora.lang('text.changes'), value = #rows, icon = 'List' },
             },
         },
         #rows > 0 and {
             type = 'table',
             id = 'changes',
-            title = 'Selected changes',
-            columns = { { key = 'change', label = 'Change' }, { key = 'price', label = 'Price', align = 'right' } },
+            title = Kora.lang('text.selected_changes'),
+            columns = { { key = 'change', label = Kora.lang('text.change') }, { key = 'price', label = Kora.lang('text.price'), align = 'right' } },
             rows = rows,
-        } or { type = 'empty', title = 'No changes selected', description = 'Preview options in the other sections to see them here.' },
+        } or { type = 'empty', title = Kora.lang('text.no_changes'), description = Kora.lang('text.review_description') },
     })
     return navigation
 end
@@ -678,7 +670,7 @@ end
 -- view) and reopens it. The camera handle stays live while the shell is open
 -- and is stopped when the whole session ends.
 local viewHandle
-local helpText = 'WASD move  |  Q/E down/up  |  Shift fast  |  Mouse look  |  Enter save view  |  Esc / Backspace cancel'
+local helpText = Kora.lang('text.freecam_help')
 -- vehicle inputs that would fire while flying (E is the horn in a vehicle)
 local blockedControls = { 23, 71, 72, 75, 76, 86 }
 
@@ -829,7 +821,7 @@ local function startView(pose)
         downControl = 44,
     })
     if not handle then
-        notify(err or 'Could not start the freecam.', 'error')
+        notify(err or Kora.lang('error.freecam'), 'error')
         return nil
     end
     viewHandle = handle
@@ -915,7 +907,7 @@ local function runHidden(session)
         if blockingPause then blockPause() end
 
         BeginTextCommandDisplayHelp('STRING')
-        AddTextComponentSubstringPlayerName('Enter / Backspace / Escape  show the menu again')
+        AddTextComponentSubstringPlayerName(Kora.lang('text.hidden_help'))
         EndTextCommandDisplayHelp(0, false, false, -1)
 
         if pressed(191) then return end
@@ -979,7 +971,7 @@ end
 local function checkout()
     local session = active
     if total() <= 0 then
-        return { notice = { tone = 'warning', message = 'No changes are selected.' } }
+        return { notice = { tone = 'warning', message = Kora.lang('text.notice_no_changes') } }
     end
 
     session.busy = true
@@ -993,12 +985,12 @@ local function checkout()
         local netId = NetworkGetNetworkIdFromEntity(session.vehicle)
         local quoted, quote = Kora.callback.trigger('kora_customs:quote', session.shopId, netId, session.pending)
         if active ~= session then return end
-        if not quoted then return abort(quote or 'Could not quote these changes; previews were reverted.') end
+        if not quoted then return abort(quote or Kora.lang('error.purchase_quote')) end
 
         local confirmation = Kora.nui.openAlert({
-            title = 'Confirm customisation',
-            message = ('Purchase the selected cosmetic changes for %s?'):format(dollars(quote.price)),
-            confirmLabel = 'Purchase',
+            title = Kora.lang('text.confirmation'),
+            message = Kora.lang('text.purchase_confirmation', dollars(quote.price)),
+            confirmLabel = Kora.lang('action.purchase'),
         })
         if active ~= session then return end
         if not confirmation or not confirmation.confirmed then
@@ -1010,8 +1002,8 @@ local function checkout()
             'kora_customs:purchase', session.shopId, netId, session.pending, quote.price, Kora.vehicle.getProperties(session.vehicle)
         )
         if not purchased then
-            if active == session then return abort(result or 'Purchase failed; preview changes were reverted.') end
-            return notify(result or 'Purchase failed.', 'error')
+            if active == session then return abort(result or Kora.lang('error.purchase_failed_reverted')) end
+            return notify(result or Kora.lang('error.purchase_failed'), 'error')
         end
 
         -- paid: no revert re-check may undo it, and no earlier preview is
@@ -1027,7 +1019,7 @@ local function checkout()
             -- previews were rolled back; the order is paid and saved, so show it.
             pcall(Kora.vehicle.setProperties, session.vehicle, session.pending, { timeout = 2000 })
         end
-        notify(('Customisation saved for %s (%s).'):format(result.plate, dollars(result.price)), 'success')
+        notify(Kora.lang('text.saved', result.plate, dollars(result.price)), 'success')
     end)
 end
 
@@ -1047,7 +1039,7 @@ local function onAction(actionId, context)
 
     if not vehicleIsUsable(session.vehicle) then
         restore()
-        notify('You must remain in the driver seat.', 'error')
+        notify(Kora.lang('error.driver_seat'), 'error')
         return { close = true }
     end
 
@@ -1086,8 +1078,8 @@ end
 
 local appDefinition = {
     id = APP_ID,
-    title = 'Custom Shop',
-    description = 'Cosmetic vehicle customisation. No repairs or performance tuning.',
+    title = Kora.lang('title'),
+    description = Kora.lang('description'),
     icon = 'Palette',
     layout = Config.ui and Config.ui.layout == 'compact' and 'compact' or 'standard',
     defaultView = 'paint',
@@ -1098,8 +1090,8 @@ local appDefinition = {
     draggable = not Config.ui or Config.ui.draggable ~= false,
     rememberPosition = not Config.ui or Config.ui.rememberPosition ~= false,
     positionKey = APP_ID,
-    footer = 'Press Escape to cancel and revert your previews',
-    navigation = { { id = 'paint', label = 'Paint', icon = 'Palette', content = { blocks = { { type = 'empty', title = 'No vehicle selected' } } } } },
+    footer = Kora.lang('footer'),
+    navigation = { { id = 'paint', label = Kora.lang('view.paint'), icon = 'Palette', content = { blocks = { { type = 'empty', title = Kora.lang('text.empty_vehicle') } } } } },
     onAction = onAction,
 }
 
@@ -1114,20 +1106,20 @@ end
 if not registered then error(registerErr, 0) end
 
 local function open(shopId)
-    if active then return notify('A customisation session is already open.', 'warning') end
-    if repairing then return notify('Wait for the repair to finish.', 'warning') end
+    if active then return notify(Kora.lang('error.session_open'), 'warning') end
+    if repairing then return notify(Kora.lang('error.wait_repair'), 'warning') end
     local shop = Config.shops[shopId]
     if not shop then return end
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    if not vehicleIsUsable(vehicle) then return notify('Sit in the driver seat of your vehicle.', 'error') end
+    if not vehicleIsUsable(vehicle) then return notify(Kora.lang('error.sit_driver'), 'error') end
     local netId = NetworkGetNetworkIdFromEntity(vehicle)
-    if not netId or netId == 0 then return notify('This vehicle is not networked.', 'error') end
+    if not netId or netId == 0 then return notify(Kora.lang('error.not_networked'), 'error') end
 
     SetVehicleModKit(vehicle, 0)
     local plate = Kora.vehicle.plate(vehicle) or nil
     putBackUnpaid(vehicle, plate)
     local original, err = Kora.vehicle.getProperties(vehicle)
-    if not original then return notify(err or 'Could not read this vehicle.', 'error') end
+    if not original then return notify(err or Kora.lang('error.read_vehicle'), 'error') end
     local session = {
         shopId = shopId,
         label = shop.label,
@@ -1166,7 +1158,7 @@ local function open(shopId)
                 if flying then runFreecam(session) else runHidden(session) end
                 if active ~= session then break end
                 if not vehicleIsUsable(session.vehicle) then
-                    notify('You must remain in the driver seat.', 'error')
+                    notify(Kora.lang('error.driver_seat'), 'error')
                     break
                 end
                 refresh()
@@ -1202,11 +1194,11 @@ local function open(shopId)
             if not session.busy then
                 local reason
                 if not vehicleIsUsable(session.vehicle) then
-                    reason = 'You must remain in the driver seat.'
+                    reason = Kora.lang('error.driver_seat')
                 elseif IsEntityDead(PlayerPedId()) then
-                    reason = 'Customisation cancelled; previews were reverted.'
+                    reason = Kora.lang('error.cancel')
                 elseif not withinDistance(GetEntityCoords(session.vehicle), shop.coords, limit) then
-                    reason = 'You left the custom shop; previews were reverted.'
+                    reason = Kora.lang('error.left_shop')
                 end
                 if reason then
                     restore()
@@ -1251,42 +1243,42 @@ end
 local function repairVehicle(shopId)
     local settings = repairSettings()
     if not settings or repairing then return end
-    if active then return notify('Close the custom shop first.', 'warning') end
+    if active then return notify(Kora.lang('error.close_shop_first'), 'warning') end
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    if not vehicleIsUsable(vehicle) then return notify('Sit in the driver seat of your vehicle.', 'error') end
-    if not needsRepair(vehicle) then return notify('This vehicle does not need a repair.', 'info') end
+    if not vehicleIsUsable(vehicle) then return notify(Kora.lang('error.sit_driver'), 'error') end
+    if not needsRepair(vehicle) then return notify(Kora.lang('error.no_repair_needed'), 'info') end
     local netId = NetworkGetNetworkIdFromEntity(vehicle)
-    if not netId or netId == 0 then return notify('This vehicle is not networked.', 'error') end
+    if not netId or netId == 0 then return notify(Kora.lang('error.not_networked'), 'error') end
 
     repairing = true
     CreateThread(function()
         local ok, err = pcall(function()
             local confirmation = Kora.nui.openAlert({
-                title = 'Repair vehicle',
-                message = ('Repair the engine and bodywork for %s?'):format(dollars(math.max(0, tonumber(settings.price) or 0))),
-                confirmLabel = 'Repair',
+                title = Kora.lang('text.repair_title'),
+                message = Kora.lang('text.repair_confirmation', dollars(math.max(0, tonumber(settings.price) or 0))),
+                confirmLabel = Kora.lang('action.repair'),
             })
             if not confirmation or not confirmation.confirmed then return end
 
             local started, ticket = Kora.callback.trigger('kora_customs:repairStart', shopId, netId)
-            if not started then return notify(ticket or 'You cannot repair your vehicle here right now.', 'error') end
+            if not started then return notify(ticket or Kora.lang('error.repair_unavailable'), 'error') end
 
             local completed = Kora.progressbar.start({
-                label = 'Repairing vehicle...',
+                label = Kora.lang('text.repair_progress'),
                 duration = ticket.durationMs,
                 canCancel = true,
                 disable = { car = true, combat = true },
             })
-            if not completed then return notify('Repair cancelled.', 'error') end
-            if not vehicleIsUsable(vehicle) then return notify('You must remain in the driver seat.', 'error') end
+            if not completed then return notify(Kora.lang('error.repair_cancelled'), 'error') end
+            if not vehicleIsUsable(vehicle) then return notify(Kora.lang('error.driver_seat'), 'error') end
             if not Kora.vehicle.requestControl(vehicle, 2000) then
-                return notify('Could not get control of the vehicle. Try again.', 'error')
+                return notify(Kora.lang('error.vehicle_control'), 'error')
             end
 
             local paid, result = Kora.callback.trigger('kora_customs:repairFinish')
-            if not paid then return notify(result or 'The repair failed.', 'error') end
+            if not paid then return notify(result or Kora.lang('error.repair_failed'), 'error') end
             fixVehicle(vehicle)
-            notify(('Vehicle repaired for %s.'):format(dollars(result.price)), 'success')
+            notify(Kora.lang('text.repair_success', dollars(result.price)), 'success')
         end)
         repairing = false
         if not ok then Kora.print.error(('kora_customs repair failed: %s'):format(tostring(err))) end
@@ -1306,7 +1298,7 @@ local function registerTargets()
             debug = Config.debug,
             options = {
                 Customs.allowInVehicle({
-                    label = ('Customise vehicle at %s'):format(shop.label),
+                    label = Kora.lang('target.customise', shop.label),
                     icon = 'palette',
                     canInteract = function()
                         return vehicleIsUsable(GetVehiclePedIsIn(PlayerPedId(), false))
@@ -1314,7 +1306,7 @@ local function registerTargets()
                     onSelect = function() open(shopId) end,
                 }, Config.targetAllowInVehicle),
                 repairSettings() and Customs.allowInVehicle({
-                    label = ('Repair vehicle (%s)'):format(dollars(math.max(0, tonumber(Config.selfRepair.price) or 0))),
+                    label = Kora.lang('target.repair', dollars(math.max(0, tonumber(Config.selfRepair.price) or 0))),
                     icon = 'wrench',
                     canInteract = function()
                         local settings = repairSettings()
@@ -1341,9 +1333,7 @@ local function registerBlips()
             info = {
                 title = shop.label,
                 rows = {
-                    { kind = 'wrappedText', value = repairSettings()
-                        and 'Cosmetic vehicle customisation. Self-service repairs when no mechanic is on duty.'
-                        or 'Cosmetic vehicle customisation. No repairs or performance tuning.' },
+                    { kind = 'wrappedText', value = repairSettings() and Kora.lang('blip') or Kora.lang('description') },
                 },
             },
         })
@@ -1375,7 +1365,7 @@ RegisterCommand('-kora_customs_horn', function()
     if Config.hornPreview and Config.hornPreview.holdToTest then holdHorn(false) end
 end, false)
 if Config.hornPreview and Config.hornPreview.holdKey then
-    RegisterKeyMapping('+kora_customs_horn', 'Customs: hold to test horn', 'keyboard', Config.hornPreview.holdKey)
+    RegisterKeyMapping('+kora_customs_horn', Kora.lang('target.horn'), 'keyboard', Config.hornPreview.holdKey)
 end
 
 exports('open', open)

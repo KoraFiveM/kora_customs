@@ -3,7 +3,7 @@ game 'gta5'
 lua54 'yes'
 
 name 'kora_customs'
-author 'qbcore2'
+author 'Kora'
 version '0.2.1'
 description 'Public self-service cosmetic vehicle customisation'
 
@@ -19,8 +19,9 @@ dependencies {
 }
 
 shared_script '@kora_lib/init.lua'
+files { 'locales/*.lua' }
 shared_scripts {
-    'config.lua',
+    'shared/config.lua',
     'shared/catalog.lua',
     'shared/camera.lua',
     'shared/horn.lua'

@@ -127,18 +127,18 @@ end
 ---@return table|nil patch
 ---@return string|nil error
 function Customs.sanitizePatch(patch)
-    if type(patch) ~= 'table' then return nil, 'invalid customisation' end
+    if type(patch) ~= 'table' then return nil, Kora.lang('error.invalid_customisation') end
     local out, count = {}, 0
     for field, value in pairs(patch) do
         count = count + 1
-        if count > 64 or type(field) ~= 'string' then return nil, 'invalid customisation' end
+        if count > 64 or type(field) ~= 'string' then return nil, Kora.lang('error.invalid_customisation') end
         local rule = rules[field]
-        if not rule then return nil, ('unsupported customisation: %s'):format(field) end
+        if not rule then return nil, Kora.lang('error.unsupported_customisation', field) end
         local sanitized = sanitizeValue(rule, value)
-        if sanitized == nil then return nil, ('invalid value for %s'):format(field) end
+        if sanitized == nil then return nil, Kora.lang('error.invalid_value', field) end
         out[field] = sanitized
     end
-    if next(out) == nil then return nil, 'no changes selected' end
+    if next(out) == nil then return nil, Kora.lang('error.no_changes') end
     return out
 end
 
