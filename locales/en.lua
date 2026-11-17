@@ -22,6 +22,8 @@ return {
         modEngineBlock = 'Engine block appearance', modAirFilter = 'Air filter appearance', modStruts = 'Struts',
         modArchCover = 'Arch covers', modAerials = 'Aerials', modTrimB = 'Secondary trim', modTank = 'Tank',
         modWindows = 'Window accessories', modLivery = 'Livery',
+        rgb_color1 = 'Custom primary RGB', rgb_color2 = 'Custom secondary RGB', rgb_neonColor = 'Custom neon RGB',
+        rgb_tyreSmokeColor = 'Custom tyre-smoke RGB',
     },
     option = {
         stock = 'Stock', factory = 'Factory', none = 'None', pure_black = 'Pure Black', dark_smoke = 'Dark Smoke',
@@ -33,7 +35,7 @@ return {
         purple = 'Purple', blacklight = 'Blacklight', sport = 'Sport', muscle = 'Muscle', lowrider = 'Lowrider',
         suv = 'SUV', offroad = 'Offroad', tuner = 'Tuner', bike = 'Bike', high_end = 'High End',
         bennys_original = "Benny's Original", bennys_bespoke = "Benny's Bespoke", open_wheel = 'Open Wheel',
-        street = 'Street', track = 'Track', colour = 'Colour %d', item = 'Option %d',
+        street = 'Street', track = 'Track', colour = 'Colour %d', item = 'Option %d', on = 'On', off = 'Off',
     },
     action = {
         prev = 'Prev', previous = 'Previous', next = 'Next', pick = 'Pick', choose = 'Choose',
@@ -41,7 +43,7 @@ return {
         pick_colour = 'Pick colour', freecam = 'Freecam', hide = 'Hide menu', purchase_changes = 'Purchase changes',
         discard_changes = 'Discard changes', purchase = 'Purchase', repair = 'Repair',
     },
-    view = { paint = 'Paint', body = 'Body', wheels = 'Wheels', interior = 'Interior', lighting = 'Lighting', plate = 'Plate & glass', extras = 'Extras' },
+    view = { paint = 'Paint', body = 'Body', wheels = 'Wheels', interior = 'Interior', lighting = 'Lighting', plate = 'Plate & glass', extras = 'Extras', review = 'Review' },
     text = {
         custom_rgb = ' (custom RGB)', changed = ' · changed', once = '%s · %s once%s', each = '%s each%s',
         item_extra = 'Vehicle extra %d', no_body_options = 'No body options for this vehicle',

@@ -493,7 +493,8 @@ local function toggleItem(field, enabled, price)
     return {
         id = field,
         label = fieldLabels[field],
-        description = Kora.lang('text.once', dollars(Customs.unitPrice(field)), changed and Kora.lang('text.changed') or ''),
+        description = Kora.lang('text.once', enabled and Kora.lang('option.on') or Kora.lang('option.off'),
+            dollars(Customs.unitPrice(field)), changed and Kora.lang('text.changed') or ''),
         tone = changed and 'primary' or nil,
         actions = { { id = 'toggle:' .. field, label = enabled and Kora.lang('action.turn_off') or Kora.lang('action.turn_on'), state = enabled } },
     }
@@ -512,7 +513,8 @@ local function rgbItem(field, label)
     return {
         id = 'rgb_' .. field,
         label = label,
-        description = Kora.lang('text.once', dollars(Customs.unitPrice(field, { r = 0, g = 0, b = 0 })), changed and Kora.lang('text.changed') or ''),
+        description = Kora.lang('text.once', type(current) == 'table' and hex or Kora.lang('option.none'),
+            dollars(Customs.unitPrice(field, { r = 0, g = 0, b = 0 })), changed and Kora.lang('text.changed') or ''),
         tone = changed and 'primary' or nil,
         actions = { {
             id = 'color:' .. field,
@@ -594,8 +596,8 @@ local function buildNavigation()
         paletteItem('color1', 'paint'),
         paletteItem('color2', 'paint'),
         paletteItem('pearlescentColor', 'paint'),
-        rgbItem('color1', 'Custom primary RGB'),
-        rgbItem('color2', 'Custom secondary RGB'),
+        rgbItem('color1', Kora.lang('field.rgb_color1')),
+        rgbItem('color2', Kora.lang('field.rgb_color2')),
     }
 
     -- The wheel category leads its section: the designs below it depend on it.
@@ -615,8 +617,8 @@ local function buildNavigation()
         toggleItem('modXenon', currentBool('modXenon'), 'lighting'),
         scalarItem('xenonColor', 'lighting', -1, currentNumber('xenonColor', -1), xenonNames),
         toggleItem('neonEnabled', neonOn, 'lighting'),
-        rgbItem('neonColor', 'Custom neon RGB'),
-        rgbItem('tyreSmokeColor', 'Custom tyre-smoke RGB'),
+        rgbItem('neonColor', Kora.lang('field.rgb_neonColor')),
+        rgbItem('tyreSmokeColor', Kora.lang('field.rgb_tyreSmokeColor')),
     }
 
     local plate = sectionItems('plate', {
@@ -641,7 +643,7 @@ local function buildNavigation()
     if #extras > 0 then
         navigation[#navigation + 1] = view('extras', Kora.lang('view.extras'), 'Puzzle', { section('extras', extras) })
     end
-    navigation[#navigation + 1] = view('review', 'Review', 'Receipt', {
+    navigation[#navigation + 1] = view('review', Kora.lang('view.review'), 'Receipt', {
         {
             type = 'stats',
             items = {
