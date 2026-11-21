@@ -4,7 +4,7 @@ lua54 'yes'
 
 name 'kora_customs'
 author 'Kora'
-version '0.2.1'
+version '0.2.2'
 description 'Public self-service cosmetic vehicle customisation'
 
 -- Satisfies resources which only declare the retired qb-customs dependency.
