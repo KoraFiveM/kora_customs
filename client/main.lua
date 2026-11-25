@@ -984,7 +984,7 @@ local function checkout()
             notify(message, 'error')
         end
 
-        local netId = NetworkGetNetworkIdFromEntity(session.vehicle)
+        local netId = NetworkGetEntityIsNetworked(session.vehicle) and NetworkGetNetworkIdFromEntity(session.vehicle) or 0
         local quoted, quote = Kora.callback.trigger('kora_customs:quote', session.shopId, netId, session.pending)
         if active ~= session then return end
         if not quoted then return abort(quote or Kora.lang('error.purchase_quote')) end
@@ -1114,7 +1114,7 @@ local function open(shopId)
     if not shop then return end
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     if not vehicleIsUsable(vehicle) then return notify(Kora.lang('error.sit_driver'), 'error') end
-    local netId = NetworkGetNetworkIdFromEntity(vehicle)
+    local netId = NetworkGetEntityIsNetworked(vehicle) and NetworkGetNetworkIdFromEntity(vehicle) or 0
     if not netId or netId == 0 then return notify(Kora.lang('error.not_networked'), 'error') end
 
     SetVehicleModKit(vehicle, 0)
@@ -1249,7 +1249,7 @@ local function repairVehicle(shopId)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     if not vehicleIsUsable(vehicle) then return notify(Kora.lang('error.sit_driver'), 'error') end
     if not needsRepair(vehicle) then return notify(Kora.lang('error.no_repair_needed'), 'info') end
-    local netId = NetworkGetNetworkIdFromEntity(vehicle)
+    local netId = NetworkGetEntityIsNetworked(vehicle) and NetworkGetNetworkIdFromEntity(vehicle) or 0
     if not netId or netId == 0 then return notify(Kora.lang('error.not_networked'), 'error') end
 
     repairing = true
